@@ -1,3 +1,3 @@
 YıldızPlace projesinin backend kodları!
 
-place.yildizskylab.com
+https://place.yildizskylab.com
