@@ -15,6 +15,7 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
+import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
@@ -25,6 +26,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -57,7 +60,9 @@ public class PixelManager implements PixelService {
 		return new SuccessDataResult<List<Pixel>>(result, Messages.boardSuccessfullyBrought);
 	}
 
+
 	@Override
+	@Cacheable(value = "colors", key = "#root.methodName", unless = "#result == null")
 	public DataResult<List<String>> getColors() {
 
 		var result = pixelDao.findAllByOrderByXAscYAsc();
@@ -81,7 +86,9 @@ public class PixelManager implements PixelService {
 	}
 
 
+
 	@Override
+	@CacheEvict(value = "colors", allEntries = true)
 	public Result addPixel(Pixel pixel, String ipAddress) {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		String schoolMail = authentication.getName();
@@ -134,6 +141,10 @@ public class PixelManager implements PixelService {
 	private boolean CheckIfLastPlacedTimeCorrect(User user) {
 
 		if (user.getLastPlacedAt() == null) {
+			return true;
+		}
+
+		if(user.getAuthorities().contains(Role.ROLE_MODERATOR) || user.getAuthorities().contains(Role.ROLE_ADMIN)){
 			return true;
 		}
 
@@ -232,7 +243,7 @@ public class PixelManager implements PixelService {
 					.color(pixelLog.getPixel().getColor())
 					.build();
 
-				pixelDtos.add(pixel);
+			pixelDtos.add(pixel);
 		}
 
 		return new SuccessDataResult<List<PixelDto>>(pixelDtos, Messages.pixelSuccessfullyBrought + " Başlangıç: " + startDate + " Bitiş: " + endDate);

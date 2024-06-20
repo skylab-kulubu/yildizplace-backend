@@ -1,4 +1,4 @@
-package com.weblab.rplace.weblab.rplace.core.security;
+package com.weblab.rplace.weblab.rplace.core.configs;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

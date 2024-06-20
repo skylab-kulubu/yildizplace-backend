@@ -198,8 +198,6 @@ public class UserManager implements UserService, UserDetailsService {
         user.addRole(Role.ROLE_MODERATOR);
         userDao.save(user);
         return new SuccessResult(Messages.moderatorAdded);
-
-
     }
 
     @Override
