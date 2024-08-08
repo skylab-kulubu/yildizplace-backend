@@ -13,7 +13,7 @@ Bu repository projenin backend kodlarını içermektedir, frontend kodları içi
 YıldızPlace'e bu link üzerinden erişebilirsiniz:
 [YıldızPlace](https://place.yildizskylab.com)
 
-Proje geliştiricileri:
+## Proje geliştiricileri
 
 [Yusuf Açmacı Github](https://github.com/yustyy)
 
