@@ -2,6 +2,7 @@
 
 ![](https://avatars.githubusercontent.com/u/96308083?s=200&v=4)
 ![](https://place.yildizskylab.com/images/loading.gif)
+![](https://iili.io/dcTZdJe.png)
 
 ## YıldızPlace Projesi Hakkında
 YıldızPlace projesi SKY LAB: Yıldız Teknik Ünivresitesi Bilgisayar Bilimleri Kulübü web ekibi olan WEBLAB tarafından geliştirilen bir reddit r/place klonudur. 
