@@ -1,6 +1,6 @@
 ### YıldızPlace
 
-<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px; text-align: center;">
   <img src="https://avatars.githubusercontent.com/u/96308083?s=200&v=4" alt="YıldızPlace Logo" width="200">
   <img src="https://place.yildizskylab.com/images/loading.gif" alt="YıldızPlace Loading" width="200">
   <img src="https://iili.io/dcTZdJe.png" alt="WEBLAB Logo" width="200">
@@ -11,7 +11,7 @@ YıldızPlace projesi SKY LAB: Yıldız Teknik Ünivresitesi Bilgisayar Bilimler
 Bu repository projenin backend kodlarını içermektedir, frontend kodları için diğer repositorylere göz atabilirsiniz.
 
 YıldızPlace'e bu link üzerinden erişebilirsiniz:
-https://place.yildizskylab.com
+[YıldızPlace](https://place.yildizskylab.com)
 
 ## Proje Kurulumu
 
