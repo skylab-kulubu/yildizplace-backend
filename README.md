@@ -58,30 +58,25 @@ https://place.yildizskylab.com
 ### 3. Dockerfile
 
 ```dockerfile
-# Use an official OpenJDK runtime as a parent image
-FROM openjdk:17-jdk-slim
+FROM maven:3.8.4-openjdk-17 AS build
 
-# Set the working directory
 WORKDIR /app
 
-# Copy the Maven build file and the source code
 COPY pom.xml .
-COPY src ./src
 
-# Install Maven
-RUN apt-get update && apt-get install -y maven
+RUN mvn dependency:go-offline -B
 
-# Build the application
-RUN mvn clean package -DskipTests
+COPY src/ ./src/
 
-# Copy the built jar file to the container
-COPY target/*.jar app.jar
+RUN mvn -f /app/pom.xml clean package -DskipTests
 
-# Expose the port the application runs on
+FROM openjdk:17-jdk-slim
+
 EXPOSE 443
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+COPY --from=build /app/target/*.jar /app/app.jar
+
+ENTRYPOINT ["java","-jar","/app/app.jar"]
 ```
 
 ### 4. docker-compose.yml
@@ -90,28 +85,28 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 version: '3.8'
 
 services:
-  app:
-    build: .
-    ports:
-      - "443:443"
-    depends_on:
-      - db
-      - redis
+   app:
+      build: .
+      ports:
+         - "443:443"
+      depends_on:
+         - db
+         - redis
 
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: yildizplace
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+   db:
+      image: postgres:latest
+      environment:
+         POSTGRES_DB: yildizplace
+         POSTGRES_USER: postgres
+         POSTGRES_PASSWORD: postgres
+      ports:
+         - "5432:5432"
 
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    command: ["redis-server"]
+   redis:
+      image: redis:latest
+      ports:
+         - "6379:6379"
+      command: ["redis-server"]
 ```
 
 ### 5. application.properties

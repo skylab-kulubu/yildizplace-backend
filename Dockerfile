@@ -10,8 +10,6 @@ COPY src/ ./src/
 
 RUN mvn -f /app/pom.xml clean package -DskipTests
 
-# Run the app
-
 FROM openjdk:17-jdk-slim
 
 EXPOSE 443
