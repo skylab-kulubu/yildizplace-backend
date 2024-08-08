@@ -1,16 +1,10 @@
 ### YıldızPlace
 
-<p align="center">
-  <img src="https://avatars.githubusercontent.com/u/96308083?s=200&v=4" alt="YıldızPlace Logo">
-</p>
-
-<p align="center">
-  <img src="https://place.yildizskylab.com/images/loading.gif" alt="YıldızPlace Loading">
-</p>
-
-<p align="center">
-  <img src="https://iili.io/dcTZdJe.png" alt="WEBLAB Logo">
-</p>
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+  <img src="https://avatars.githubusercontent.com/u/96308083?s=200&v=4" alt="YıldızPlace Logo" width="200">
+  <img src="https://place.yildizskylab.com/images/loading.gif" alt="YıldızPlace Loading" width="200">
+  <img src="https://iili.io/dcTZdJe.png" alt="WEBLAB Logo" width="200">
+</div>
 
 ## YıldızPlace Projesi Hakkında
 YıldızPlace projesi SKY LAB: Yıldız Teknik Ünivresitesi Bilgisayar Bilimleri Kulübü web ekibi olan WEBLAB tarafından geliştirilen bir reddit r/place klonudur. 
