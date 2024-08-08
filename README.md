@@ -1,5 +1,6 @@
 ### YıldızPlace
 
+![](https://avatars.githubusercontent.com/u/96308083?s=200&v=4)
 ![](https://place.yildizskylab.com/images/loading.gif)
 
 ## YıldızPlace Projesi Hakkında
