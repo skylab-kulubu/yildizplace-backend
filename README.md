@@ -14,6 +14,7 @@ YıldızPlace'e bu link üzerinden erişebilirsiniz:
 [YıldızPlace](https://place.yildizskylab.com)
 
 Proje geliştiricileri:
+
 [Yusuf Açmacı Github](https://github.com/yustyy)
 
 [Yusuf Açmacı Linkedin](https://www.linkedin.com/in/yusuf-acmaci)
