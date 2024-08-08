@@ -1,4 +1,13 @@
-### README
+### YıldızPlace
+
+![](https://place.yildizskylab.com/images/loading.gif)
+
+## YıldızPlace Projesi Hakkında
+YıldızPlace projesi SKY LAB: Yıldız Teknik Ünivresitesi Bilgisayar Bilimleri Kulübü web ekibi olan WEBLAB tarafından geliştirilen bir reddit r/place klonudur. 
+Bu repository projenin backend kodlarını içermektedir, frontend kodları için diğer repositorylere göz atabilirsiniz.
+
+YıldızPlace'e bu link üzerinden erişebilirsiniz:
+https://place.yildizskylab.com
 
 ## Proje Kurulumu
 
@@ -9,11 +18,11 @@
 - Redis
 - Docker (Docker ile kurulum için)
 
-### Manuel Kurulum
+### 1. Manuel Kurulum
 
 1. **Depoyu Klonlayın:**
    ```sh
-   git clone https://github.com/skylab-kulubu/proje_adi.git
+   git clone https://github.com/skylab-kulubu/yildizplace-backend.git
    cd yildizplace-backend
    ```
 
@@ -30,11 +39,11 @@
    mvn spring-boot:run
    ```
 
-### Docker ile Kurulum
+### 2. Docker ile Kurulum
 
 1. **Depoyu Klonlayın:**
    ```sh
-   git clone https://github.com/skylab-kulubu/proje_adi.git
+   git clone https://github.com/skylab-kulubu/yildizplace-backend.git
    cd yildizplace-backend
    ```
 
@@ -46,7 +55,7 @@
    docker-compose up --build
    ```
 
-### Dockerfile
+### 3. Dockerfile
 
 ```dockerfile
 # Use an official OpenJDK runtime as a parent image
@@ -75,7 +84,7 @@ EXPOSE 443
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
-### docker-compose.yml
+### 4. docker-compose.yml
 
 ```yaml
 version: '3.8'
@@ -105,7 +114,7 @@ services:
     command: ["redis-server"]
 ```
 
-### application.properties
+### 5. application.properties
 
 ```ini
 spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
@@ -153,6 +162,6 @@ spring.mail.username=mail
 # security.ignored=/**
 ```
 
-### Notlar
+### 6. Notlar
 - `application.properties` dosyasındaki yapılandırmaları ihtiyacınıza göre güncelleyin.
 - SSL sertifikalarının doğru şekilde yapılandırıldığından emin olun.
