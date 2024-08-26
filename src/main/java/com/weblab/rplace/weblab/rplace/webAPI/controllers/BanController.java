@@ -5,18 +5,17 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.BannedIp;
 import com.weblab.rplace.weblab.rplace.entities.BannedUser;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import javax.xml.crypto.Data;
 import java.util.List;
 
 @RestController
 @RequestMapping("api/bans")
+@RequiredArgsConstructor
 public class BanController {
 
-    @Autowired
-    private BanService banService;
+    private final BanService banService;
 
 
     @PostMapping("/banUser")

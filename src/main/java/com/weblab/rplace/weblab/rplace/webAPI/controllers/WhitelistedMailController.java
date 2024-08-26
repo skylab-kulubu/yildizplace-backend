@@ -3,17 +3,16 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
-import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
 import com.weblab.rplace.weblab.rplace.entities.dtos.WhitelistedMailDto;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("api/whitelistedMails")
+@RequiredArgsConstructor
 public class WhitelistedMailController {
 
-    @Autowired
-    private WhitelistedMailService whitelistedMailService;
+    private final WhitelistedMailService whitelistedMailService;
 
 
     @PostMapping("/add")

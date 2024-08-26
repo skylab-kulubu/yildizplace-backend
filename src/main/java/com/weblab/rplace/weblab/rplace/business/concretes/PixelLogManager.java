@@ -10,9 +10,7 @@ import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import jakarta.persistence.EntityManager;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -21,24 +19,31 @@ import java.util.List;
 @Service
 public class PixelLogManager implements PixelLogService {
 
-    @Autowired
-    private PixelLogDao pixelLogDao;
+    private final PixelLogDao pixelLogDao;
 
-    @Autowired
-    private PixelService pixelService;
+    private final PixelService pixelService;
 
-    @Autowired
-    private EntityManager entityManager;
+    private final EntityManager entityManager;
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public PixelLogManager(EntityManager entityManager, PixelLogDao pixelLogDao, @Lazy PixelService pixelService, UserService userService) {
+        this.entityManager = entityManager;
+        this.pixelLogDao = pixelLogDao;
+        this.pixelService = pixelService;
+        this.userService = userService;
+    }
 
     @Override
     public Result addPixelLog(Pixel pixel,String oldColor, String placerIp) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        User user = userService.getUserBySchoolMail(username).getData();
-        user.setLastPlacedAt(new Date());
+       var loggedInUserResult = userService.getAuthenticatedUser();
+        if (!loggedInUserResult.isSuccess()){
+            return loggedInUserResult;
+        }
+
+        var loggedInUser = loggedInUserResult.getData();
+
+        loggedInUser.setLastPlacedAt(new Date());
 
         PixelLog pixelLog = PixelLog.builder()
                 .pixel(pixel)
@@ -46,7 +51,7 @@ public class PixelLogManager implements PixelLogService {
                 .newColor(pixel.getColor())
                 .placerIp(placerIp)
                 .placedAt(new Date())
-                .user(user)
+                .user(loggedInUser)
                 .build();
 
         pixelLogDao.save(pixelLog);
@@ -123,13 +128,16 @@ public class PixelLogManager implements PixelLogService {
 
 
     public Result addPixelLogsWithQuery(int startX, int endX, int startY, int endY, String ipAddress){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String schoolMail = authentication.getName();
-        User user = userService.getUserBySchoolMail(schoolMail).getData();
+        var loggedInUserResult = userService.getAuthenticatedUser();
+        if (!loggedInUserResult.isSuccess()){
+            return loggedInUserResult;
+        }
+
+        User loggedInUser = loggedInUserResult.getData();
 
             entityManager.createNativeQuery("INSERT INTO pixel_logs (new_color, placed_at, placer_ip, pixel_id, user_id) SELECT color, CURRENT_TIMESTAMP, ?, id, ? FROM pixels WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ?;")
                     .setParameter(1, ipAddress)
-                    .setParameter(2, user.getId())
+                    .setParameter(2, loggedInUser.getId())
                     .setParameter(3, startX)
                     .setParameter(4, endX)
                     .setParameter(5, startY)

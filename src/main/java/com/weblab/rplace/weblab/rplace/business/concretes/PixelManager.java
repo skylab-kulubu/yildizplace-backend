@@ -1,9 +1,5 @@
 package com.weblab.rplace.weblab.rplace.business.concretes;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -19,17 +15,10 @@ import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
-import com.zaxxer.hikari.HikariDataSource;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.Table;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.SneakyThrows;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.PixelService;
@@ -40,18 +29,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PixelManager implements PixelService {
 
-	@Autowired
-	private PixelDao pixelDao;
+	private final PixelDao pixelDao;
 
-	@Autowired
-	private PixelLogService pixelLogService;
+	private final PixelLogService pixelLogService;
 
-	@Autowired
-	private UserService userService;
+	private final UserService userService;
 
-	@Autowired
-	private BanService banService;
+	private final BanService banService;
 
+	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService) {
+		this.banService = banService;
+		this.pixelDao = pixelDao;
+		this.pixelLogService = pixelLogService;
+		this.userService = userService;
+	}
 
 	@Override
 	public DataResult<List<Pixel>> getBoard() {
@@ -90,10 +81,15 @@ public class PixelManager implements PixelService {
 	@Override
 	@CacheEvict(value = "colors", allEntries = true)
 	public Result addPixel(Pixel pixel, String ipAddress) {
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		String schoolMail = authentication.getName();
+		var loggedInUserResult = userService.getAuthenticatedUser();
 
-		var userResult = userService.getUserBySchoolMail(schoolMail);
+		if (!loggedInUserResult.isSuccess()) {
+			return loggedInUserResult;
+		}
+
+		var loggedInUser = loggedInUserResult.getData();
+
+		var userResult = userService.getUserBySchoolMail(loggedInUser.getSchoolMail());
 		if (!userResult.isSuccess()) {
 			return userResult;
 		}

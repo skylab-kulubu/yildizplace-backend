@@ -7,7 +7,6 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
-import jakarta.servlet.http.HttpServletRequest;
 
 public interface PixelService  {
 

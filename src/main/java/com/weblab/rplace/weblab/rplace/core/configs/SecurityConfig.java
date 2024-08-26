@@ -2,7 +2,7 @@ package com.weblab.rplace.weblab.rplace.core.configs;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.core.security.TokenAuthFilter;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,17 +22,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig{
 
     private final TokenAuthFilter tokenAuthFilter;
 
     private final UserService userService;
-
-    @Autowired
-    public SecurityConfig(TokenAuthFilter tokenAuthFilter, UserService userService) {
-        this.tokenAuthFilter = tokenAuthFilter;
-        this.userService = userService;
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

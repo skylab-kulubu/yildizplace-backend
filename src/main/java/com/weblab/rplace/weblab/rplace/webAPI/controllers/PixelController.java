@@ -4,36 +4,24 @@ import java.util.List;
 
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.PixelService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
-import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessDataResult;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 
 @RestController
 @RequestMapping("api/pixels")
-//@CrossOrigin(origins = {"http://yildizrplacetest.vercel.app","https://yildizrplacetest.vercel.app","http://localhost:3000"})
+@RequiredArgsConstructor
 public class PixelController {
 	
-	private PixelService pixelService;
+	private final PixelService pixelService;
 
-	private SimpMessagingTemplate messagingTemplate;
-
-	@Autowired
-	public PixelController(PixelService pixelService, SimpMessagingTemplate messagingTemplate) {
-		this.pixelService = pixelService;
-		this.messagingTemplate = messagingTemplate;
-	}
+	private final SimpMessagingTemplate messagingTemplate;
 	
 	
 	@PostMapping("/addPixel")

@@ -4,9 +4,7 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.BannedIp;
 import com.weblab.rplace.weblab.rplace.entities.BannedUser;
-import com.weblab.rplace.weblab.rplace.entities.User;
 
-import javax.xml.crypto.Data;
 import java.util.List;
 
 public interface BanService {

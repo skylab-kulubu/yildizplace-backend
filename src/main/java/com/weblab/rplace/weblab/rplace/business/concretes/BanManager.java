@@ -9,9 +9,6 @@ import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.BannedUserDao;
 import com.weblab.rplace.weblab.rplace.entities.BannedIp;
 import com.weblab.rplace.weblab.rplace.entities.BannedUser;
 import com.weblab.rplace.weblab.rplace.entities.User;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -20,16 +17,17 @@ import java.util.List;
 @Service
 public class BanManager implements BanService {
 
-    @Autowired
-    private BannedIpDao bannedIpDao;
+    private final BannedIpDao bannedIpDao;
 
-    @Autowired
-    private BannedUserDao bannedUserDao;
+    private final BannedUserDao bannedUserDao;
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
 
-
+    public BanManager(BannedIpDao bannedIpDao, BannedUserDao bannedUserDao, UserService userService) {
+        this.bannedIpDao = bannedIpDao;
+        this.bannedUserDao = bannedUserDao;
+        this.userService = userService;
+    }
 
     @Override
     public DataResult<List<BannedIp>> getBannedIps() {
@@ -55,20 +53,21 @@ public class BanManager implements BanService {
 
     @Override
     public Result banIp(String ip, String reason) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String adminSchoolMail = authentication.getName();
+        var loggedInUserResult = userService.getAuthenticatedUser();
+
+        if (!loggedInUserResult.isSuccess()){
+            return loggedInUserResult;
+        }
+
+        var loggedInUser = loggedInUserResult.getData();
 
         if(CheckIfIpAlreadyBanned(ip)){
             return new ErrorResult(Messages.ipAlreadyBanned);
         }
 
-        DataResult<User> adminUserResult = userService.getUserBySchoolMail(adminSchoolMail);
-        if (!adminUserResult.isSuccess()){
-            return adminUserResult;
-        }
 
         BannedIp bannedIp = BannedIp.builder()
-                .bannedBy(adminUserResult.getData())
+                .bannedBy(loggedInUser)
                 .bannedAt(new Date())
                 .ip(ip)
                 .reason(reason)
@@ -91,15 +90,18 @@ public class BanManager implements BanService {
 
     @Override
     public Result banUser(String schoolMail, String reason) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String adminSchoolMail = authentication.getName();
+       var loggedInUserResult = userService.getAuthenticatedUser();
+
+       if (!loggedInUserResult.isSuccess()){
+           return loggedInUserResult;
+         }
+
+        var loggedInUser = loggedInUserResult.getData();
 
         if(CheckIfUserAlreadyBanned(schoolMail)){
             return new ErrorResult(Messages.userAlreadyBanned);
         }
 
-
-        DataResult<User> adminUserResult = userService.getUserBySchoolMail(adminSchoolMail);
 
         DataResult<User> userToBanResult = userService.getUserBySchoolMail(schoolMail);
 
@@ -107,15 +109,11 @@ public class BanManager implements BanService {
             return userToBanResult;
         }
 
-        if (!adminUserResult.isSuccess()){
-            return adminUserResult;
-        }
-
         BannedUser bannedUser = BannedUser.builder()
                 .bannedUser(userToBanResult.getData())
                 .bannedAt(new Date())
                 .reason(reason)
-                .bannedBy(adminUserResult.getData())
+                .bannedBy(loggedInUser)
                 .build();
 
         bannedUserDao.save(bannedUser);

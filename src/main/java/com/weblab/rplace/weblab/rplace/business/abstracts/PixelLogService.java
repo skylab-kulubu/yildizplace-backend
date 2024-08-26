@@ -5,7 +5,6 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
 
-import java.util.Date;
 import java.util.List;
 
 public interface PixelLogService {

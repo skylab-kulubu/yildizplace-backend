@@ -8,8 +8,6 @@ import org.springframework.stereotype.Repository;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.List;
 
 @Repository

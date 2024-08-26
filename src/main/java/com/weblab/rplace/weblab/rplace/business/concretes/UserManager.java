@@ -1,18 +1,18 @@
 package com.weblab.rplace.weblab.rplace.business.concretes;
 
-import com.weblab.rplace.weblab.rplace.business.abstracts.EmailService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.utilities.mail.EmailService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
 import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,23 +21,25 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Set;
 
 @Service
 public class UserManager implements UserService, UserDetailsService {
 
-    @Autowired
-    private UserDao userDao;
+    private final UserDao userDao;
 
-    @Autowired
-    private EmailService emailService;
+    private final EmailService emailService;
 
-    @Autowired
-    private UserTokenService userTokenService;
+    private final WhitelistedMailService whiteListedMailService;
 
-    @Autowired
-    private WhitelistedMailService whiteListedMailService;
+    private final UserTokenService userTokenService;
+
+    public UserManager(EmailService emailService, UserDao userDao, WhitelistedMailService whiteListedMailService,@Lazy UserTokenService userTokenService) {
+        this.emailService = emailService;
+        this.userDao = userDao;
+        this.whiteListedMailService = whiteListedMailService;
+        this.userTokenService = userTokenService;
+    }
 
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
@@ -82,7 +84,7 @@ public class UserManager implements UserService, UserDetailsService {
                 "<p style=font-size:12px>Buton çalışmıyor ise bu <a href=\"https://place.yildizskylab.com/play?token="+token+"\">link</a> üzerinden katılabilirsiniz. <br>Unutmayınız, link kişiye özeldir. <b>Kimse ile paylaşmayınız.<b></b></p>\n" +
                 "</div>\n" +
                 "</body>";
-        emailService.sendEmailWithJavaMailSender(schoolMail, "YıldızPlace Giriş Bağlantısı", body);
+        emailService.sendMail(schoolMail, "YıldızPlace Giriş Bağlantısı", body);
 
         /*
         var userToken = new UserToken().builder().token(token).user(user).build();
@@ -220,6 +222,13 @@ public class UserManager implements UserService, UserDetailsService {
         user.getAuthorities().remove(Role.ROLE_MODERATOR);
         userDao.save(user);
         return new SuccessResult(Messages.moderatorRemoved);
+    }
+
+    @Override
+    public DataResult<User> getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String usersSchoolMail = authentication.getName();
+        return getUserBySchoolMail(usersSchoolMail);
     }
 
 

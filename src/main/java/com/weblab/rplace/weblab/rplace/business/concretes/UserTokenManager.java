@@ -7,21 +7,23 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-import javax.xml.crypto.Data;
 import java.util.Date;
 import java.util.List;
 
 @Service
 public class UserTokenManager implements UserTokenService {
 
-    @Autowired
-    private UserTokenDao userTokenDao;
+    private final UserTokenDao userTokenDao;
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao) {
+        this.userService = userService;
+        this.userTokenDao = userTokenDao;
+    }
 
     @Override
     public DataResult<UserToken> getUserToken(String token) {
@@ -56,7 +58,7 @@ public class UserTokenManager implements UserTokenService {
         var usernameResult = userService.getUserById(result.getUserId());
 
         if (!usernameResult.isSuccess()){
-            return new ErrorDataResult<String>(null, Messages.userNotFound);
+            return new ErrorDataResult<String>(null,Messages.userNotFound);
         }
 
         String username = usernameResult.getData().getSchoolMail();

@@ -142,7 +142,7 @@ spring.datasource.password=postgres
 server.servlet.session.cookie.same-site=strict
 
 spring.jpa.properties.javax.persistence.validation.mode = none
-spring.main.allow-circular-references = true
+#spring.main.allow-circular-references = true
 
 # Redis Configuration
 spring.data.redis.host=redis
@@ -163,9 +163,13 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 
 # Mail configuration for Gmail
 spring.mail.host=host
-spring.mail.port=port
+spring.mail.port=587
 spring.mail.password=sifre
 spring.mail.username=mail
+
+#OPTIONAL - IF YOU DONT WANT TO USE JAVA MAIL SERVER YOU CAN USE RESEND
+#BY DEFAULT JAVA MAIL SENDER IS BEING USED
+resend.api.key=your_resend_api_key
 
 # Disable security
 # security.ignored=/**

@@ -7,14 +7,16 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.WhitelistedMailDao;
 import com.weblab.rplace.weblab.rplace.entities.WhitelistedMail;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class WhitelistedMailManager implements WhitelistedMailService {
 
-    @Autowired
-    private WhitelistedMailDao whitelistedMailDao;
+    private final WhitelistedMailDao whitelistedMailDao;
+
+    public WhitelistedMailManager(WhitelistedMailDao whitelistedMailDao) {
+        this.whitelistedMailDao = whitelistedMailDao;
+    }
 
     @Override
     public Result add(String mail) {

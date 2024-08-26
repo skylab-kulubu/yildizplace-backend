@@ -2,19 +2,13 @@ package com.weblab.rplace.weblab.rplace.core.security;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
-import com.weblab.rplace.weblab.rplace.business.concretes.UserTokenManager;
-import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
-import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
-import com.weblab.rplace.weblab.rplace.entities.User;
-import com.weblab.rplace.weblab.rplace.entities.UserToken;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,7 +17,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.stream.Stream;
 
 
 @Component
@@ -33,6 +26,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
     private final UserService userService;
 
+    @Lazy
     @Autowired
     public TokenAuthFilter(UserTokenService userTokenService, UserService userService) {
         this.userTokenService = userTokenService;

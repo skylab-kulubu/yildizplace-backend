@@ -9,19 +9,17 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("api/users")
-//@CrossOrigin(origins = {"http://yildizrplacetest.vercel.app","https://yildizrplacetest.vercel.app","http://localhost:3000"})
+@RequiredArgsConstructor
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
 
-    @Autowired
-    private UserTokenService userTokenService;
+    private final UserTokenService userTokenService;
 
     @GetMapping("/register")
     public Result registerUser(@RequestParam String schoolMail, HttpServletRequest request){

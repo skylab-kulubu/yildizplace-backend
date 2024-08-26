@@ -3,25 +3,18 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 import com.weblab.rplace.weblab.rplace.business.abstracts.PixelLogService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
-import lombok.SneakyThrows;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 
 @RestController
 @RequestMapping("api/pixelLogs")
-//@CrossOrigin(origins = {"http://yildizrplacetest.vercel.app","https://yildizrplacetest.vercel.app","http://localhost:3000"})
+@RequiredArgsConstructor
 public class PixelLogController {
-    private PixelLogService pixelLogService;
 
-    @Autowired
-    public PixelLogController(PixelLogService pixelLogService) {
-        this.pixelLogService = pixelLogService;
-    }
+    private final PixelLogService pixelLogService;
 
     @GetMapping("/getPixelLogsByPixelId")
     DataResult<List<PixelLog>> getPixelLogsByPixelId(@RequestParam int pixelId){
