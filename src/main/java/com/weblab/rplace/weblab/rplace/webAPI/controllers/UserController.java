@@ -10,6 +10,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,6 +21,9 @@ public class UserController {
     private final UserService userService;
 
     private final UserTokenService userTokenService;
+
+    @Value("${domain}")
+    private String domain;
 
     @GetMapping("/register")
     public Result registerUser(@RequestParam String schoolMail, HttpServletRequest request){
@@ -46,7 +50,7 @@ public class UserController {
 
             var cookie = new Cookie("user_token", token);
             cookie.setPath("/");
-            cookie.setDomain("place.yildizskylab.com");
+            cookie.setDomain(domain);
             cookie.setMaxAge(31536000);
             cookie.setHttpOnly(true);
             cookie.setSecure(true);
@@ -60,7 +64,7 @@ public class UserController {
             if(userRolesResult.getData().contains("ROLE_ADMIN") || userRolesResult.getData().contains("ROLE_MODERATOR")){
                 var adminCookie = new Cookie("isAdmin", "true");
                 adminCookie.setPath("/");
-                adminCookie.setDomain("place.yildizskylab.com");
+                adminCookie.setDomain(domain);
                 adminCookie.setMaxAge(31536000);
                 adminCookie.setHttpOnly(true);
                 adminCookie.setSecure(true);
@@ -85,7 +89,7 @@ public class UserController {
     public Result logoutUser(HttpServletResponse response){
         var cookie = new Cookie("user_token", "");
         cookie.setPath("/");
-        cookie.setDomain("place.yildizskylab.com");
+        cookie.setDomain(domain);
         cookie.setMaxAge(0);
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
@@ -94,7 +98,7 @@ public class UserController {
 
         var adminCookie = new Cookie("isAdmin", "");
         adminCookie.setPath("/");
-        adminCookie.setDomain("place.yildizskylab.com");
+        adminCookie.setDomain(domain);
         adminCookie.setMaxAge(0);
         adminCookie.setHttpOnly(true);
         adminCookie.setSecure(true);
