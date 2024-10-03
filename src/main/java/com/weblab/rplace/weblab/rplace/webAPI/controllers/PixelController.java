@@ -84,6 +84,23 @@ public class PixelController {
 
 	}
 
+	@PostMapping("/bringBackPixels")
+	public Result bringBackPixels(@RequestBody FillDto fillDto, HttpServletRequest request) {
+		String ipAddress = request.getRemoteAddr();
+
+		String forwardedFor = request.getHeader("X-Forwarded-For");
+		if (forwardedFor != null && !forwardedFor.isEmpty()) {
+			ipAddress = forwardedFor.split(",")[0];
+		}
+
+		var result = pixelService.bringBackPreviousPixels(fillDto, ipAddress);
+		if (result.isSuccess()){
+			messagingTemplate.convertAndSend("/topic/fill",fillDto);
+		}
+
+		return result;
+	}
+
 }
 
 

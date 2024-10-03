@@ -43,6 +43,7 @@ public class SecurityConfig{
                                .requestMatchers("/api/pixels/getByXAndY").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/getPixelsBetweenDates").permitAll()
                                .requestMatchers("/api/pixels/fill").hasAnyRole("ADMIN", "MODERATOR")
+                               .requestMatchers("/api/pixels/bringBackPixels").hasAnyRole("ADMIN", "MODERATOR")
 
                                .requestMatchers("/api/pixelLogs/**").hasAnyRole("ADMIN", "MODERATOR")
 

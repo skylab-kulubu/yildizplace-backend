@@ -1,25 +1,14 @@
 package com.weblab.rplace.weblab.rplace.business.constants;
 
-import com.weblab.rplace.weblab.rplace.entities.BannedIp;
-import com.weblab.rplace.weblab.rplace.entities.BannedUser;
-import com.weblab.rplace.weblab.rplace.entities.PixelLog;
-import com.weblab.rplace.weblab.rplace.entities.User;
-import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 
-import java.util.List;
 
 public class Messages {
 
-    public static String fieldsCannotBeNull = "Lütfen geçerli x ve y koordinatları girin!";
 
     public static String colorMustBeCorrect = "Lütfen geçerli bir renk giriniz!";
-
     public static String pixelColorChanged = "Pixel rengi değiştirildi!";
-
     public static String pixelSuccessfullyAddedToDatabase = "Pixel veritabanında oluşturuldu!";
-
     public static String pixelSuccessfullyBrought = "Pixel başarıyla getirildi";
-
     public static String boardSuccessfullyBrought = "Tablo başarıyla getirildi!";
     public static String pixelLogAdded = "Pixel logu eklendi!";
     public static String pixelLogsListed = "Pixel logları listelendi!";
@@ -31,11 +20,11 @@ public class Messages {
     public static String pixelLogsAdded = "Pixel logları eklendi!";
     public static String emailSent = "E-posta başarıyla gönderildi!";
     public static String  emailNotSent = "E-posta gönderilemedi!";
-    public static String userAlreadyExists = "Bu kullanıcı zaten mevcut!";
     public static String userDoesNotExist = "Bu kullanıcı mevcut değil!";
     public static String userSuccessfullyAdded = "Kullanıcı başarıyla eklendi!";
     public static String registrationSuccessful = "Kayıt başarılı!";
-    public static String invalidSchoolMail = "Lütfen kayıt masasında belirttiğiniz eposta adresini veya std.yildiz.edu.tr ile biten eposta adresinizi girin!";
+    public static String invalidSchoolMailArtlab = "Lütfen kayıt masasında belirttiğiniz eposta adresini veya std.yildiz.edu.tr ile biten eposta adresinizi girin!";
+    public static String invalidSchoolMail = "Kayıt başarısız! Lütfen @std.yildiz.edu.tr ile biten okul mailinizi giriniz!";
     public static String tokenNotFound = "Token bulunamadı!";
     public static String tokenFound = "Token bulundu!";
     public static String tokenAdded = "Token eklendi!";
@@ -45,8 +34,6 @@ public class Messages {
     public static String loginFailed = "Giriş başarısız!";
     public static String userNotFound = "Kullanıcı bulunamadı!";
     public static String lastPlacedTimeMustBeCorrect = "Piksel eklemek için son eklenen zamanı bekleyin!";
-    public static String tokenUsed = "Token daha önceden kullanılmış, lütfen yeni bir token alın!";
-    public static String adminAdded = "Admin başarıyla eklendi!";
     public static String maxTokenCountReachedByIp = "Bu IP adresi için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı!";
     public static String maxTokenCountReachedByUser = "Bu kullanıcı için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı!";
     public static String bannedIpsNotFound = "Yasaklı IPler bulunamadı!";
@@ -61,9 +48,6 @@ public class Messages {
     public static String ipAlreadyBanned = "Bu IP adresi zaten yasaklı!";
     public static String userAlreadyBanned = "Bu kullanıcı zaten yasaklı!";
     public static String logoutSuccess = "Çıkış başarılı!";
-    public static String userAlreadyAdmin = "Bu kullanıcı zaten admin!";
-    public static String userNotAdmin = "Bu kullanıcı admin değil!";
-    public static String adminRemoved = "Admin başarıyla kaldırıldı!";
     public static String userAlreadyModerator = "Bu kullanıcı zaten moderatör!";
     public static String moderatorAdded = "Moderatör başarıyla eklendi!";
     public static String userNotModerator = "Bu kullanıcı moderatör değil!";
@@ -73,4 +57,6 @@ public class Messages {
     public static String whitelistedMailExists = "Bu mail whitelisted!";
     public static String whitelistedMailDoesNotExist = "Bu mail whitelisted değil!";
     public static String whitelistedMailDeleted = "Whitelisted mail başarıyla silindi!";
+    public static String pixelMustBeInsideCanvas = "Piksel tablo sınırları dışında olamaz!";
+    public static String bringBackPreviousPixelsSuccessfullyExecuted = "Önceki pikseller başarıyla geri getirildi!";
 }

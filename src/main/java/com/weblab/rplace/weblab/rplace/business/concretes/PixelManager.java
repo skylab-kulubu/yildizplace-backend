@@ -16,6 +16,7 @@ import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import lombok.SneakyThrows;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
@@ -36,6 +37,12 @@ public class PixelManager implements PixelService {
 	private final UserService userService;
 
 	private final BanService banService;
+
+	@Value("${canvas.max.pixel.x}")
+	private String canvasMaxPixelX;
+
+	@Value("${canvas.max.pixel.y}")
+	private String canvasMaxPixelY;
 
 	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService) {
 		this.banService = banService;
@@ -117,6 +124,10 @@ public class PixelManager implements PixelService {
 			return new ErrorResult(Messages.colorMustBeCorrect);
 		}
 
+		if(!CheckIfPixelInsideCanvas(pixel)){
+			return new ErrorResult(Messages.pixelMustBeInsideCanvas);
+		}
+
 
 		if(CheckIfPixelExists(pixel) == true) {
 			var pixelToChange = pixelDao.findByXAndY(pixel.getX(), pixel.getY());
@@ -132,6 +143,15 @@ public class PixelManager implements PixelService {
 		pixelDao.save(pixel);
 		pixelLogService.addPixelLog(pixel,pixel.getColor(), ipAddress);
 		return new SuccessResult(Messages.pixelSuccessfullyAddedToDatabase);
+	}
+
+	private boolean CheckIfPixelInsideCanvas(Pixel pixel) {
+
+		if (pixel.getX() < 0 || pixel.getX() > Integer.parseInt(canvasMaxPixelX) || pixel.getY() < 0 || pixel.getY() > Integer.parseInt(canvasMaxPixelY)) {
+			return false;
+		}
+		return true;
+
 	}
 
 	private boolean CheckIfLastPlacedTimeCorrect(User user) {
@@ -249,6 +269,7 @@ public class PixelManager implements PixelService {
 
 	@Transactional
 	@Override
+	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<FillDto> fill(FillDto fillDto, String ipAddress) {
 
 		if(!CheckIfColorsCorrect(Pixel.builder().color(fillDto.getColor()).build())){
@@ -272,5 +293,24 @@ public class PixelManager implements PixelService {
 		return new SuccessDataResult<>(fillDto, Messages.fillSuccessfullyExecuted);
 
 	}
+
+	@Override
+	@CacheEvict(value = "colors", allEntries = true)
+	public DataResult<FillDto> bringBackPreviousPixels(FillDto fillDto, String ipAddress) {
+
+		if (fillDto.getStartX() > fillDto.getEndX() || fillDto.getStartY() > fillDto.getEndY()) {
+			return new ErrorDataResult<>(Messages.fillAreaMustBeCorrect);
+		}
+
+		pixelDao.bringBackPreviousPixels(fillDto.getStartX(), fillDto.getEndX(), fillDto.getStartY(), fillDto.getEndY());
+
+		//var newPixels = pixelDao.findAllByXBetweenAndYBetween(fillDto.getStartX(), fillDto.getEndX(), fillDto.getStartY(), fillDto.getEndY());
+
+
+		return new SuccessDataResult<>(null,Messages.bringBackPreviousPixelsSuccessfullyExecuted);
+
+
+	}
+
 
 }

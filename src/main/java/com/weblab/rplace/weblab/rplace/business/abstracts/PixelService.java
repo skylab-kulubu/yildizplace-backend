@@ -10,17 +10,20 @@ import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 
 public interface PixelService  {
 
-	
+
 	DataResult<List<Pixel>> getBoard();
 
 	DataResult<List<String>> getColors();
-	
+
 	Result addPixel(Pixel pixel, String  ipAddress);
-	
+
 	DataResult<Pixel> getByXAndY(int x, int y);
 
 	DataResult<List<PixelDto>> getPixelsBetweenDates(long unixStartDate, long unixEndDate);
 
 	DataResult<FillDto> fill(FillDto fillDto, String ipAddress);
-	
+
+	DataResult<FillDto> bringBackPreviousPixels(FillDto fillDto, String ipAddress);
+
 }
+
