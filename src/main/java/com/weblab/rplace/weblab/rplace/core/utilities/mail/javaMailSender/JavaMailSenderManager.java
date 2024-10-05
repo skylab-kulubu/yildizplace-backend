@@ -34,7 +34,7 @@ public class JavaMailSenderManager implements EmailService {
 
             javaMailSender.send(mimeMessage);
             return new SuccessResult(Messages.emailSent);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             return new ErrorResult(Messages.emailNotSent);
         }
     }

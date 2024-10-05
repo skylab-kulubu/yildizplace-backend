@@ -10,7 +10,7 @@ services:
       - redis
 
   db:
-    image: postgres:latest
+    image: postgres:17
     environment:
       POSTGRES_DB: yildizplace
       POSTGRES_USER: postgres

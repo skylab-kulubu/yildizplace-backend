@@ -1,5 +1,6 @@
 package com.weblab.rplace.weblab.rplace.business.concretes;
 
+import com.weblab.rplace.weblab.rplace.business.abstracts.BanService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
@@ -34,26 +35,29 @@ public class UserManager implements UserService, UserDetailsService {
 
     private final UserTokenService userTokenService;
 
-    public UserManager(EmailService emailService, UserDao userDao, WhitelistedMailService whiteListedMailService,@Lazy UserTokenService userTokenService) {
+    private final BanService banService;
+
+    public UserManager(EmailService emailService, UserDao userDao, WhitelistedMailService whiteListedMailService,@Lazy UserTokenService userTokenService, @Lazy BanService banService) {
         this.emailService = emailService;
         this.userDao = userDao;
         this.whiteListedMailService = whiteListedMailService;
         this.userTokenService = userTokenService;
+        this.banService = banService;
     }
 
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
 
-        /*
         if(!CheckIfSchoolMailCorrect(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
         }
 
-         */
-
+        /*
         if(CheckIfMailCorrect(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
         }
+
+         */
 
         if(!CheckIfMaxTokenCountReachedByIp(ipAddress).isSuccess()){
             return new ErrorResult(Messages.maxTokenCountReachedByIp);
@@ -61,6 +65,12 @@ public class UserManager implements UserService, UserDetailsService {
 
         if (!CheckIfMaxTokenCountReachedBySchoolMail(schoolMail).isSuccess()) {
             return new ErrorResult(Messages.maxTokenCountReachedByUser);
+        }
+
+       var userBanResult = banService.isUserBanned(schoolMail);
+        if(userBanResult.isSuccess()){
+           return new ErrorDataResult<>(userBanResult.getData(), userBanResult.getMessage());
+
         }
 
 
@@ -84,7 +94,10 @@ public class UserManager implements UserService, UserDetailsService {
                 "<p style=font-size:12px>Buton çalışmıyor ise bu <a href=\"https://place.yildizskylab.com/play?token="+token+"\">link</a> üzerinden katılabilirsiniz. <br>Unutmayınız, link kişiye özeldir. <b>Kimse ile paylaşmayınız.<b></b></p>\n" +
                 "</div>\n" +
                 "</body>";
-        emailService.sendMail(schoolMail, "YıldızPlace Giriş Bağlantısı", body);
+         var mailResult = emailService.sendMail(schoolMail, "YıldızPlace Giriş Bağlantısı", body);
+         if (!mailResult.isSuccess()) {
+             return mailResult;
+         }
 
         /*
         var userToken = new UserToken().builder().token(token).user(user).build();

@@ -19,10 +19,10 @@ public class Messages {
     public static String fillAreaMustBeCorrect = "Başlangıç koordinatları bitiş koordinatlarından küçük olmalıdır!";
     public static String pixelLogsAdded = "Pixel logları eklendi!";
     public static String emailSent = "E-posta başarıyla gönderildi!";
-    public static String  emailNotSent = "E-posta gönderilemedi!";
+    public static String  emailNotSent = "E-posta sistemsel bir hata yüzünden gönderilemedi! Lütfen daha sonra tekrar deneyiniz! İlgili birimimiz durumla ilgili bilgilendirildi, yaşanan durum için üzgünüz :(";
     public static String userDoesNotExist = "Bu kullanıcı mevcut değil!";
     public static String userSuccessfullyAdded = "Kullanıcı başarıyla eklendi!";
-    public static String registrationSuccessful = "Kayıt başarılı!";
+    public static String registrationSuccessful = "Kayıt başarılı! Lütfen spam ve gereksiz kutuları dahil gelen kutunuzu kontrol ediniz!";
     public static String invalidSchoolMailArtlab = "Lütfen kayıt masasında belirttiğiniz eposta adresini veya std.yildiz.edu.tr ile biten eposta adresinizi girin!";
     public static String invalidSchoolMail = "Kayıt başarısız! Lütfen @std.yildiz.edu.tr ile biten okul mailinizi giriniz!";
     public static String tokenNotFound = "Token bulunamadı!";
@@ -34,8 +34,8 @@ public class Messages {
     public static String loginFailed = "Giriş başarısız!";
     public static String userNotFound = "Kullanıcı bulunamadı!";
     public static String lastPlacedTimeMustBeCorrect = "Piksel eklemek için son eklenen zamanı bekleyin!";
-    public static String maxTokenCountReachedByIp = "Bu IP adresi için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı!";
-    public static String maxTokenCountReachedByUser = "Bu kullanıcı için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı!";
+    public static String maxTokenCountReachedByIp = "Bu IP adresi için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı! Lütfen 1 saat sonra tekrar deneyin!";
+    public static String maxTokenCountReachedByUser = "Bu kullanıcı için 1 saat içerisinde alınabilecek maksimum mail sayısına ulaşıldı! Lütfen 1 saat sonra tekrar deneyin!";
     public static String bannedIpsNotFound = "Yasaklı IPler bulunamadı!";
     public static String bannedIpsFound = "Yasaklı IPler  getirildi!";
     public static String bannedUsersNotFound = "Yasaklı kullanıcılar bulunamadı!";

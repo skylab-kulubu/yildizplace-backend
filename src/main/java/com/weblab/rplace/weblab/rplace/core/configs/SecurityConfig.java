@@ -49,7 +49,7 @@ public class SecurityConfig{
 
                                .requestMatchers("/api/users/register").permitAll()
                                .requestMatchers("/api/users/login").permitAll()
-                               .requestMatchers("/api/users/logout").hasAnyRole("ADMIN","USER", "MODERATOR")
+                               .requestMatchers("/api/users/logout").permitAll()
                                .requestMatchers("/api/users/addModerator").hasAnyRole("ADMIN")
                                .requestMatchers("/api/users/removeModerator").hasAnyRole("ADMIN")
 
