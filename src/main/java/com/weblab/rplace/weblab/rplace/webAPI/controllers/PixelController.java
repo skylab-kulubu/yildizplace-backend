@@ -2,10 +2,12 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 
 import java.util.List;
 
+import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +27,7 @@ public class PixelController {
 	
 	
 	@PostMapping("/addPixel")
-	public Result addPixel(@RequestBody Pixel pixel, HttpServletRequest request) {
+	public ResponseEntity<Result> addPixel(@RequestBody Pixel pixel, HttpServletRequest request) {
 		String ipAddress = request.getRemoteAddr();
 
 		String forwardedFor = request.getHeader("X-Forwarded-For");
@@ -39,12 +41,17 @@ public class PixelController {
 		if (result.isSuccess()){
 			messagingTemplate.convertAndSend("/topic/pixels",pixel);
 		}
-		
-		return result;
-		
+
+		if (result.getMessage().equals(Messages.invalidSchoolMailToAddPixel)){
+			return ResponseEntity.status(403).body(result);
+		}
+
+		return ResponseEntity.ok(result);
+
+
 	}
-	
-	
+
+
 	@GetMapping("/getBoard")
 	public DataResult<List<Pixel>> getBoard(){
 		return pixelService.getBoard();

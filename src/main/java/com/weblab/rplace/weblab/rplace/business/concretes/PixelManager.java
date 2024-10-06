@@ -44,6 +44,9 @@ public class PixelManager implements PixelService {
 	@Value("${canvas.max.pixel.y}")
 	private String canvasMaxPixelY;
 
+	@Value("${school.mail.enabled}")
+	private Boolean isSchoolMailEnabled;
+
 	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService) {
 		this.banService = banService;
 		this.pixelDao = pixelDao;
@@ -101,6 +104,10 @@ public class PixelManager implements PixelService {
 			return userResult;
 		}
 
+		if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userResult.getData().getSchoolMail())){
+			return new ErrorResult(Messages.invalidSchoolMailToAddPixel);
+		}
+
 
 		var ipBanResult = banService.isIpBanned(ipAddress);
 		if(ipBanResult.isSuccess()){
@@ -143,6 +150,10 @@ public class PixelManager implements PixelService {
 		pixelDao.save(pixel);
 		pixelLogService.addPixelLog(pixel,pixel.getColor(), ipAddress);
 		return new SuccessResult(Messages.pixelSuccessfullyAddedToDatabase);
+	}
+
+	private boolean CheckIfSchoolMailCorrect(String schoolMail) {
+		return schoolMail.endsWith("@std.yildiz.edu.tr");
 	}
 
 	private boolean CheckIfPixelInsideCanvas(Pixel pixel) {

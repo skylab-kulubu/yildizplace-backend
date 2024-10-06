@@ -11,6 +11,8 @@ public interface UserService extends UserDetailsService {
 
     Result registerUser(String schoolMail, String ipAddress);
 
+    Result loginUser(String token);
+
     Result addUser(User user);
 
     DataResult<User> getUserById(int id);

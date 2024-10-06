@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -38,12 +39,17 @@ public class UserController {
     }
 
     @GetMapping("/login")
-    public Result loginUser(@RequestParam String token, HttpServletResponse response){
-        var tokenResult = userTokenService.validateToken(token);
+    public ResponseEntity<Result> loginUser(@RequestParam String token, HttpServletResponse response){
+        var tokenResult = userService.loginUser(token);
 
         if (!tokenResult.isSuccess()){
-            return new ErrorResult(tokenResult.getMessage());
+            return ResponseEntity.ok(tokenResult);
         }
+
+        if (tokenResult.getMessage().equals(Messages.invalidSchoolMail)){
+           return ResponseEntity.status(403).body(tokenResult);
+        }
+
 
         if(tokenResult.isSuccess()){
             //response.setHeader("Set-Cookie", "user_token="+token+"; SameSite=strict; Secure; HttpOnly; Path=/; Domain=egehan.dev; Max-Age=31536000");
@@ -78,10 +84,10 @@ public class UserController {
             //response.setHeader("Set-Cookie", "user_token="+token+"; SameSite=strict; Secure; HttpOnly; Path=/; Domain=localhost; Max-Age=31536000");
 
 
-            return new SuccessResult(Messages.loginSuccess);
+            return ResponseEntity.ok(new SuccessResult(Messages.loginSuccess));
         }
 
-        return new ErrorResult(Messages.loginFailed);
+        return ResponseEntity.ok(new ErrorResult(Messages.loginFailed));
 
     }
 

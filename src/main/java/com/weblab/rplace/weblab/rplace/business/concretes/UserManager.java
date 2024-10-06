@@ -11,6 +11,7 @@ import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
 import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,6 +38,9 @@ public class UserManager implements UserService, UserDetailsService {
 
     private final BanService banService;
 
+    @Value("${school.mail.enabled}")
+    private Boolean isSchoolMailEnabled;
+
     public UserManager(EmailService emailService, UserDao userDao, WhitelistedMailService whiteListedMailService,@Lazy UserTokenService userTokenService, @Lazy BanService banService) {
         this.emailService = emailService;
         this.userDao = userDao;
@@ -48,7 +52,7 @@ public class UserManager implements UserService, UserDetailsService {
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
 
-        if(!CheckIfSchoolMailCorrect(schoolMail)){
+        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
         }
 
@@ -116,6 +120,26 @@ public class UserManager implements UserService, UserDetailsService {
 
         return new SuccessResult(Messages.registrationSuccessful);
 
+    }
+
+    @Override
+    public Result loginUser(String token) {
+        var tokenResult = userTokenService.validateToken(token);
+
+        if (!tokenResult.isSuccess()) {
+            return new ErrorResult(tokenResult.getMessage());
+        }
+
+        var userNameResult = userTokenService.getUserNameByToken(token);
+        if (!userNameResult.isSuccess()) {
+            return new ErrorResult(userNameResult.getMessage());
+        }
+
+        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userNameResult.getData())){
+            return new ErrorResult(Messages.invalidSchoolMail);
+        }
+
+        return new SuccessResult(Messages.loginSuccess);
     }
 
     private boolean CheckIfMailCorrect(String schoolMail) {
