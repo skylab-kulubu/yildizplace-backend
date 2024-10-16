@@ -15,7 +15,7 @@ public interface PixelService  {
 
 	DataResult<List<String>> getColors();
 
-	Result addPixel(Pixel pixel, String  ipAddress);
+	DataResult<Pixel> addPixel(Pixel pixel, String  ipAddress);
 
 	DataResult<Pixel> getByXAndY(int x, int y);
 

@@ -20,95 +20,92 @@ import com.weblab.rplace.weblab.rplace.entities.Pixel;
 @RequestMapping("api/pixels")
 @RequiredArgsConstructor
 public class PixelController {
-	
-	private final PixelService pixelService;
 
-	private final SimpMessagingTemplate messagingTemplate;
-	
-	
-	@PostMapping("/addPixel")
-	public ResponseEntity<Result> addPixel(@RequestBody Pixel pixel, HttpServletRequest request) {
-		String ipAddress = request.getRemoteAddr();
+    private final PixelService pixelService;
 
-		String forwardedFor = request.getHeader("X-Forwarded-For");
-		if (forwardedFor != null && !forwardedFor.isEmpty()) {
-			ipAddress = forwardedFor.split(",")[0];
-		}
+    private final SimpMessagingTemplate messagingTemplate;
 
 
-		var result = pixelService.addPixel(pixel, ipAddress);
+    @PostMapping("/addPixel")
+    public ResponseEntity<Result> addPixel(@RequestBody Pixel pixel, HttpServletRequest request) {
+        String ipAddress = request.getRemoteAddr();
 
-		if (result.isSuccess()){
-			messagingTemplate.convertAndSend("/topic/pixels",pixel);
-		}
-
-		if (result.getMessage().equals(Messages.invalidSchoolMailToAddPixel)){
-			return ResponseEntity.status(403).body(result);
-		}
-
-		return ResponseEntity.ok(result);
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            ipAddress = forwardedFor.split(",")[0];
+        }
 
 
-	}
+        var result = pixelService.addPixel(pixel, ipAddress);
+
+        if (result.isSuccess()){
+            messagingTemplate.convertAndSend("/topic/pixels",result.getData());
+        }
+
+        if (result.getMessage().equals(Messages.invalidSchoolMailToAddPixel)){
+            return ResponseEntity.status(403).body(result);
+        }
+
+        return ResponseEntity.ok(result);
 
 
-	@GetMapping("/getBoard")
-	public DataResult<List<Pixel>> getBoard(){
-		return pixelService.getBoard();
-	}
-
-	@GetMapping("/getColors")
-	public DataResult<List<String>> getColorsMatris(){
-		return pixelService.getColors();
-	}
-
-	@GetMapping("getByXAndY")
-	public DataResult<Pixel> getByXAndY(@RequestParam int x, int y){
-		return pixelService.getByXAndY(x,y);
-	}
-
-	@GetMapping("/getPixelsBetweenDates")
-	public DataResult<List<PixelDto>> getPixelsBetweenDates(@RequestParam long unixStartDate, @RequestParam long unixEndDate){
-		return pixelService.getPixelsBetweenDates(unixStartDate, unixEndDate);
-	}
+    }
 
 
-	@PostMapping("/fill")
-	public Result fill(@RequestBody FillDto fillDto, HttpServletRequest request) {
-		String ipAddress = request.getRemoteAddr();
+    @GetMapping("/getBoard")
+    public DataResult<List<Pixel>> getBoard(){
+        return pixelService.getBoard();
+    }
 
-		String forwardedFor = request.getHeader("X-Forwarded-For");
-		if (forwardedFor != null && !forwardedFor.isEmpty()) {
-			ipAddress = forwardedFor.split(",")[0];
-		}
+    @GetMapping("/getColors")
+    public DataResult<List<String>> getColorsMatris(){
+        return pixelService.getColors();
+    }
 
-		var result = pixelService.fill(fillDto, ipAddress);
-		if (result.isSuccess()){
-			messagingTemplate.convertAndSend("/topic/fill",fillDto);
-		}
+    @GetMapping("getByXAndY")
+    public DataResult<Pixel> getByXAndY(@RequestParam int x, int y){
+        return pixelService.getByXAndY(x,y);
+    }
 
-		return result;
+    @GetMapping("/getPixelsBetweenDates")
+    public DataResult<List<PixelDto>> getPixelsBetweenDates(@RequestParam long unixStartDate, @RequestParam long unixEndDate){
+        return pixelService.getPixelsBetweenDates(unixStartDate, unixEndDate);
+    }
 
-	}
 
-	@PostMapping("/bringBackPixels")
-	public Result bringBackPixels(@RequestBody FillDto fillDto, HttpServletRequest request) {
-		String ipAddress = request.getRemoteAddr();
+    @PostMapping("/fill")
+    public Result fill(@RequestBody FillDto fillDto, HttpServletRequest request) {
+        String ipAddress = request.getRemoteAddr();
 
-		String forwardedFor = request.getHeader("X-Forwarded-For");
-		if (forwardedFor != null && !forwardedFor.isEmpty()) {
-			ipAddress = forwardedFor.split(",")[0];
-		}
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            ipAddress = forwardedFor.split(",")[0];
+        }
 
-		var result = pixelService.bringBackPreviousPixels(fillDto, ipAddress);
-		if (result.isSuccess()){
-			messagingTemplate.convertAndSend("/topic/fill",fillDto);
-		}
+        var result = pixelService.fill(fillDto, ipAddress);
+        if (result.isSuccess()){
+            messagingTemplate.convertAndSend("/topic/fill",fillDto);
+        }
 
-		return result;
-	}
+        return result;
+
+    }
+
+    @PostMapping("/bringBackPixels")
+    public Result bringBackPixels(@RequestBody FillDto fillDto, HttpServletRequest request) {
+        String ipAddress = request.getRemoteAddr();
+
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            ipAddress = forwardedFor.split(",")[0];
+        }
+
+        var result = pixelService.bringBackPreviousPixels(fillDto, ipAddress);
+        if (result.isSuccess()){
+            messagingTemplate.convertAndSend("/topic/fill",fillDto);
+        }
+
+        return result;
+    }
 
 }
-
-
-

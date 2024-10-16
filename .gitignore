@@ -10,7 +10,9 @@ HELP.md
 .springBeans
 .sts4-cache
 
-.data
+data/
+*.dump
+*.sql
 
 ### IntelliJ IDEA ###
 .idea

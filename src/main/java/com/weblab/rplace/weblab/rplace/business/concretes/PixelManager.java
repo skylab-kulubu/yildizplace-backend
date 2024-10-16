@@ -5,9 +5,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-import com.weblab.rplace.weblab.rplace.business.abstracts.BanService;
-import com.weblab.rplace.weblab.rplace.business.abstracts.PixelLogService;
-import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
+import com.weblab.rplace.weblab.rplace.business.abstracts.*;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
@@ -22,7 +20,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-import com.weblab.rplace.weblab.rplace.business.abstracts.PixelService;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.PixelDao;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +35,8 @@ public class PixelManager implements PixelService {
 
 	private final BanService banService;
 
+    private final FinalPixelService finalPixelService;
+
 	@Value("${canvas.max.pixel.x}")
 	private String canvasMaxPixelX;
 
@@ -47,11 +46,15 @@ public class PixelManager implements PixelService {
 	@Value("${school.mail.enabled}")
 	private Boolean isSchoolMailEnabled;
 
-	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService) {
+    @Value("${final.pixel.enabled}")
+    private Boolean isFinalPixelEnabled;
+
+	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService) {
 		this.banService = banService;
 		this.pixelDao = pixelDao;
 		this.pixelLogService = pixelLogService;
 		this.userService = userService;
+        this.finalPixelService = finalPixelService;
 	}
 
 	@Override
@@ -90,49 +93,66 @@ public class PixelManager implements PixelService {
 
 	@Override
 	@CacheEvict(value = "colors", allEntries = true)
-	public Result addPixel(Pixel pixel, String ipAddress) {
+	public DataResult<Pixel> addPixel(Pixel pixel, String ipAddress) {
 		var loggedInUserResult = userService.getAuthenticatedUser();
 
 		if (!loggedInUserResult.isSuccess()) {
-			return loggedInUserResult;
+			return new ErrorDataResult<>(loggedInUserResult.getMessage());
 		}
 
 		var loggedInUser = loggedInUserResult.getData();
 
 		var userResult = userService.getUserBySchoolMail(loggedInUser.getSchoolMail());
 		if (!userResult.isSuccess()) {
-			return userResult;
+			return new ErrorDataResult(userResult.getMessage());
 		}
 
 		if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userResult.getData().getSchoolMail())){
-			return new ErrorResult(Messages.invalidSchoolMailToAddPixel);
+			return new ErrorDataResult(Messages.invalidSchoolMailToAddPixel);
 		}
 
 
 		var ipBanResult = banService.isIpBanned(ipAddress);
 		if(ipBanResult.isSuccess()){
-			return new ErrorResult(ipBanResult.getMessage());
+			return new ErrorDataResult(ipBanResult.getMessage());
 		}
 
 
 		var userBanResult = banService.isUserBanned(userResult.getData().getSchoolMail());
 		if(userBanResult.isSuccess()){
-			return new ErrorResult(userBanResult.getMessage());
+			return new ErrorDataResult(userBanResult.getMessage());
 		}
 
 
 		if(!CheckIfLastPlacedTimeCorrect(userResult.getData())){
-			return new ErrorResult(Messages.lastPlacedTimeMustBeCorrect);
+			return new ErrorDataResult(Messages.lastPlacedTimeMustBeCorrect);
 		}
+
+        if (isFinalPixelEnabled) {
+            var finalPixelResult = finalPixelService.getFinalPixelByXAndY(pixel.getX(), pixel.getY());
+
+            if (!finalPixelResult.isSuccess()) {
+                return new ErrorDataResult(finalPixelResult.getMessage());
+            }
+
+            var pixelToChange = pixelDao.findByXAndY(pixel.getX(), pixel.getY());
+
+            pixelToChange.setColor(pixel.getColor());
+
+            pixelDao.save(pixelToChange);
+            pixelLogService.addPixelLog(pixelToChange, pixel.getColor(), ipAddress);
+
+            return new SuccessDataResult<>(pixel, Messages.pixelColorChanged);
+        }
 
 
 		//pixel rengi doğru mu?
 		if(!CheckIfColorsCorrect(pixel)){
-			return new ErrorResult(Messages.colorMustBeCorrect);
+			return new ErrorDataResult(Messages.colorMustBeCorrect);
 		}
 
 		if(!CheckIfPixelInsideCanvas(pixel)){
-			return new ErrorResult(Messages.pixelMustBeInsideCanvas);
+			return new ErrorDataResult(Messages.pixelMustBeInsideCanvas);
 		}
 
 
@@ -144,12 +164,12 @@ public class PixelManager implements PixelService {
 			pixelDao.save(pixelToChange);
 			pixelLogService.addPixelLog(pixelToChange, oldColor, ipAddress);
 
-			return new SuccessResult(Messages.pixelColorChanged);
+			return new SuccessDataResult<>(pixel, Messages.pixelColorChanged);
 		}
 
 		pixelDao.save(pixel);
 		pixelLogService.addPixelLog(pixel,pixel.getColor(), ipAddress);
-		return new SuccessResult(Messages.pixelSuccessfullyAddedToDatabase);
+		return new SuccessDataResult<>(pixel,Messages.pixelSuccessfullyAddedToDatabase);
 	}
 
 	private boolean CheckIfSchoolMailCorrect(String schoolMail) {

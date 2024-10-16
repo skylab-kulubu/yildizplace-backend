@@ -60,4 +60,9 @@ public class Messages {
     public static String pixelMustBeInsideCanvas = "Piksel tablo sınırları dışında olamaz!";
     public static String bringBackPreviousPixelsSuccessfullyExecuted = "Önceki pikseller başarıyla geri getirildi!";
     public static String invalidSchoolMailToAddPixel = "Piksel eklemek için okul maili ile giriş zorunludur!";
+    public static String finalPixelColorsRetrieved = "Final pixel renkleri getirildi!";
+    public static String finalPixelNotFound = "Final pixel bulunamadı!";
+    public static String finalPixelRetrieved = "Final pixel getirildi!";
+    public static String pixelNotFound = "Pixel bulunamadı!";
+    public static String finalPixelFound;
 }
