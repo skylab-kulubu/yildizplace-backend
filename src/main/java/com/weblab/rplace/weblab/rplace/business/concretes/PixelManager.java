@@ -137,12 +137,12 @@ public class PixelManager implements PixelService {
 
             var pixelToChange = pixelDao.findByXAndY(pixel.getX(), pixel.getY());
 
-            pixelToChange.setColor(pixel.getColor());
+            pixelToChange.setColor(finalPixelResult.getData().getColor());
 
             pixelDao.save(pixelToChange);
-            pixelLogService.addPixelLog(pixelToChange, pixel.getColor(), ipAddress);
+            pixelLogService.addPixelLog(pixelToChange, pixelToChange.getColor(), ipAddress);
 
-            return new SuccessDataResult<>(pixel, Messages.pixelColorChanged);
+            return new SuccessDataResult<>(pixelToChange, Messages.pixelColorChanged);
         }
 
 
