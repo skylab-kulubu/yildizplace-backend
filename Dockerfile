@@ -4,16 +4,23 @@ WORKDIR /app
 
 COPY pom.xml .
 
-RUN mvn dependency:go-offline -B
+RUN --mount=type=cache,target=/root/.m2 \
+  mvn dependency:go-offline -B
 
 COPY src/ ./src/
 
-RUN mvn -f /app/pom.xml clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 \
+  mvn -f /app/pom.xml clean package -DskipTests
 
-FROM openjdk:17-jdk-slim
+FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
+
+WORKDIR /app
 
 EXPOSE 443
 
 COPY --from=build /app/target/*.jar /app/app.jar
 
 ENTRYPOINT ["java","-jar","/app/app.jar"]
+
+
+CMD []

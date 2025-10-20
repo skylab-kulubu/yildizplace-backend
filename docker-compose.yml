@@ -2,13 +2,20 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: quay.io/skylab/yildizplace-backend:1.0
     ports:
       - "443:443"
     depends_on:
       - db
       - redis
-
+    command:
+      [
+        "-XX:MaxRAMPercentage=75.0",
+        "-XX:+UseG1GC",
+        "-XX:+UseStringDeduplication",
+        "-XX:+ExitOnOutOfMemoryError",
+        "-Xshare:on",
+      ]
   db:
     image: postgres:17
     environment:
