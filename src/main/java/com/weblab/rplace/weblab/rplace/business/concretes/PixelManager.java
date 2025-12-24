@@ -351,9 +351,9 @@ public class PixelManager implements PixelService {
 	public DataResult<Pixel> addProtectedPixel(ProtectedPixelRequestDto protectedPixelRequestDto, String ipAddress) {
 
 		DecryptedResult decrypted = decryptedCoord(protectedPixelRequestDto.getNumber());
-
-
 		if (!decrypted.isValid()){
+
+			System.out.println("Decryption failed for number: " + protectedPixelRequestDto.getNumber());
 
 			return new ErrorDataResult<>(Messages.invalidOrExpiredRequest);
 
@@ -368,8 +368,6 @@ public class PixelManager implements PixelService {
 
 		return this.addPixel(pixelToSend, ipAddress);
 
-
-
 	}
 
 
@@ -377,10 +375,16 @@ public class PixelManager implements PixelService {
 		long now = System.currentTimeMillis();
 		long currentWindow = now / 10000;
 
+		System.out.println("Current time: " + now);
+
 		long[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};
 
 		int maxX = Integer.parseInt(canvasMaxPixelX);
 		int maxY = Integer.parseInt(canvasMaxPixelY);
+
+		System.out.println("Attempting decryption for encrypted value: " + encryptedVal);
+		System.out.println("Possible windows: " + Arrays.toString(possibleWindows));
+		System.out.println("Max X: " + maxX + ", Max Y: " + maxY);
 
 		for (long window : possibleWindows) {
 			long unpacked = encryptedVal ^ window ^ 99887766;
@@ -388,14 +392,16 @@ public class PixelManager implements PixelService {
 			int y = (int)(unpacked & 0xFFF);
 			int x = (int) (unpacked >> 12);
 
+			System.out.println("Decrypted with window " + window + ": x = " + x + ", y = " + y);
+
 			if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
+				System.out.println("Decrypted x: " + x + ", y: " + y + " using window: " + window);
 				return new DecryptedResult(x, y, true);
 			}
 		}
 
-
+		System.out.println("Failed to decrypt coordinates for encrypted value: " + encryptedVal);
 		return new DecryptedResult(0,0, false);
-
 
 	}
 
