@@ -97,12 +97,11 @@ public class UserTokenManager implements UserTokenService {
             return new ErrorResult(Messages.tokenNotFound);
         }
 
-        /*
+
         if (userToken.isUsed()) {
             return new ErrorResult(Messages.tokenUsed);
         }
 
-         */
 
         userToken.setUsed(true);
         userToken.setUsedAt(new Date());

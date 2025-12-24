@@ -13,6 +13,9 @@ import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
+import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -341,6 +344,68 @@ public class PixelManager implements PixelService {
 		return new SuccessDataResult<>(null,Messages.bringBackPreviousPixelsSuccessfullyExecuted);
 
 
+	}
+
+	@Override
+	@CacheEvict(value = "colors", allEntries = true)
+	public DataResult<Pixel> addProtectedPixel(ProtectedPixelRequestDto protectedPixelRequestDto, String ipAddress) {
+
+		DecryptedResult decrypted = decryptedCoord(protectedPixelRequestDto.getNumber());
+
+
+		if (!decrypted.isValid()){
+
+			return new ErrorDataResult<>(Messages.invalidOrExpiredRequest);
+
+		}
+
+		Pixel pixelToSend = Pixel.builder()
+				.x(decrypted.getX())
+				.y(decrypted.getY())
+				.color(protectedPixelRequestDto.getColor())
+				.build();
+
+
+		return this.addPixel(pixelToSend, ipAddress);
+
+
+
+	}
+
+
+	private DecryptedResult decryptedCoord(long encryptedVal){
+		long now = System.currentTimeMillis();
+		long currentWindow = now / 10000;
+
+		long[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};
+
+		int maxX = Integer.parseInt(canvasMaxPixelX);
+		int maxY = Integer.parseInt(canvasMaxPixelY);
+
+		for (long window : possibleWindows) {
+			long unpacked = encryptedVal ^ window ^ 99887766;
+
+			int y = (int)(unpacked & 0xFFF);
+			int x = (int) (unpacked >> 12);
+
+			if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
+				return new DecryptedResult(x, y, true);
+			}
+		}
+
+
+		return new DecryptedResult(0,0, false);
+
+
+	}
+
+
+	@Data
+	@AllArgsConstructor
+	private static class DecryptedResult {
+		private int x;
+		private int y;
+		private boolean valid;
 	}
 
 

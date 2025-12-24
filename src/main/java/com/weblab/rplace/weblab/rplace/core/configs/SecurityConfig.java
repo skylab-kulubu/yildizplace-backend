@@ -37,13 +37,15 @@ public class SecurityConfig{
                        x
                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                               .requestMatchers("/api/pixels/addPixel").hasAnyRole("ADMIN", "USER", "MODERATOR")
+                               .requestMatchers("/api/pixels/addPixel").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/getBoard").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/getColors").permitAll()
                                .requestMatchers("/api/pixels/getByXAndY").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/getPixelsBetweenDates").permitAll()
                                .requestMatchers("/api/pixels/fill").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/bringBackPixels").hasAnyRole("ADMIN", "MODERATOR")
+                               .requestMatchers("/api/pixels/getUnixTime").permitAll()
+                               .requestMatchers("/api/pixels/addProtectedPixel").hasAnyRole("ADMIN", "USER", "MODERATOR")
 
                                .requestMatchers("/api/pixelLogs/**").hasAnyRole("ADMIN", "MODERATOR")
 

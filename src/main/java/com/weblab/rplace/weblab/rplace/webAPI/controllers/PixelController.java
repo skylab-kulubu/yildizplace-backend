@@ -5,6 +5,8 @@ import java.util.List;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
+import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
+import com.weblab.rplace.weblab.rplace.entities.dtos.UnixTimeResultDto;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +50,32 @@ public class PixelController {
 
         return ResponseEntity.ok(result);
 
+
+    }
+
+
+    @PostMapping("/addProtectedPixel")
+    public ResponseEntity<Result> addProtectedPixel(@RequestBody ProtectedPixelRequestDto protectedPixelRequestDto, HttpServletRequest request){
+
+        String ipAddress = request.getRemoteAddr();
+
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            ipAddress = forwardedFor.split(",")[0];
+        }
+
+        var result = pixelService.addProtectedPixel(protectedPixelRequestDto, ipAddress);
+
+        if (result.isSuccess()){
+            messagingTemplate.convertAndSend("/topic/pixels",result.getData());
+        }
+
+
+        if (result.getMessage().equals(Messages.invalidSchoolMailToAddPixel)){
+            return ResponseEntity.status(403).body(result);
+        }
+
+        return ResponseEntity.ok(result);
 
     }
 
@@ -106,6 +134,17 @@ public class PixelController {
         }
 
         return result;
+    }
+
+    @GetMapping("/getUnixTime")
+    public DataResult<UnixTimeResultDto> getUnixTime(){
+
+
+        long unixtime = System.currentTimeMillis()/1000;
+
+        UnixTimeResultDto unixTimeResultDto = new UnixTimeResultDto(unixtime);
+        return new DataResult<UnixTimeResultDto>(unixTimeResultDto, true, Messages.unixTimeListed);
+
     }
 
 }

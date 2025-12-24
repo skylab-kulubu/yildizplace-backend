@@ -7,6 +7,7 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
+import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
 
 public interface PixelService  {
 
@@ -25,5 +26,6 @@ public interface PixelService  {
 
 	DataResult<FillDto> bringBackPreviousPixels(FillDto fillDto, String ipAddress);
 
+	DataResult<Pixel> addProtectedPixel(ProtectedPixelRequestDto protectedPixelRequestDto, String ipAddress);
 }
 
