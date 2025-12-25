@@ -371,32 +371,35 @@ public class PixelManager implements PixelService {
 	}
 
 
-	private DecryptedResult decryptedCoord(long encryptedVal){
-		long now = System.currentTimeMillis();
-		long currentWindow = now / 10000;
+	private DecryptedResult decryptedCoord(long encryptedValLong){
+		int encryptedVal = (int) encryptedValLong;
+		long currentUnixTime = System.currentTimeMillis() / 1000L;
+		int currentWindow = (int) (currentUnixTime/10);
 
-		System.out.println("Current time: " + now);
 
-		long[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};
+		int[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};
+
 
 		int maxX = Integer.parseInt(canvasMaxPixelX);
 		int maxY = Integer.parseInt(canvasMaxPixelY);
 
-		System.out.println("Attempting decryption for encrypted value: " + encryptedVal);
-		System.out.println("Possible windows: " + Arrays.toString(possibleWindows));
-		System.out.println("Max X: " + maxX + ", Max Y: " + maxY);
+		for (int window : possibleWindows) {
+			int unpacked = encryptedVal ^ window ^ 68524471;
 
-		for (long window : possibleWindows) {
-			long unpacked = encryptedVal ^ window ^ 99887766;
+			int magicCheck = (unpacked >>> 24) & 0xFF;
 
-			int y = (int)(unpacked & 0xFFF);
-			int x = (int) (unpacked >> 12);
+			int x = (unpacked >>> 12) & 0xFFF;
 
-			System.out.println("Decrypted with window " + window + ": x = " + x + ", y = " + y);
+			int y = unpacked & 0xFFF;
 
-			if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
-				System.out.println("Decrypted x: " + x + ", y: " + y + " using window: " + window);
-				return new DecryptedResult(x, y, true);
+
+			if (magicCheck == 0xA5) {
+				if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
+					return new DecryptedResult(x, y, true);
+				} else {
+					System.out.println("Security: Magic number matched but coords out of bounds.");
+					return new DecryptedResult(0, 0, false);
+				}
 			}
 		}
 
