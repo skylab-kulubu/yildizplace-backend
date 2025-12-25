@@ -38,7 +38,7 @@ public class PixelManager implements PixelService {
 
 	private final BanService banService;
 
-    private final FinalPixelService finalPixelService;
+	private final FinalPixelService finalPixelService;
 
 	@Value("${canvas.max.pixel.x}")
 	private String canvasMaxPixelX;
@@ -49,15 +49,15 @@ public class PixelManager implements PixelService {
 	@Value("${school.mail.enabled}")
 	private Boolean isSchoolMailEnabled;
 
-    @Value("${final.pixel.enabled}")
-    private Boolean isFinalPixelEnabled;
+	@Value("${final.pixel.enabled}")
+	private Boolean isFinalPixelEnabled;
 
 	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService) {
 		this.banService = banService;
 		this.pixelDao = pixelDao;
 		this.pixelLogService = pixelLogService;
 		this.userService = userService;
-        this.finalPixelService = finalPixelService;
+		this.finalPixelService = finalPixelService;
 	}
 
 	@Override
@@ -131,22 +131,22 @@ public class PixelManager implements PixelService {
 			return new ErrorDataResult(Messages.lastPlacedTimeMustBeCorrect);
 		}
 
-        if (isFinalPixelEnabled) {
-            var finalPixelResult = finalPixelService.getFinalPixelByXAndY(pixel.getX(), pixel.getY());
+		if (isFinalPixelEnabled) {
+			var finalPixelResult = finalPixelService.getFinalPixelByXAndY(pixel.getX(), pixel.getY());
 
-            if (!finalPixelResult.isSuccess()) {
-                return new ErrorDataResult(finalPixelResult.getMessage());
-            }
+			if (!finalPixelResult.isSuccess()) {
+				return new ErrorDataResult(finalPixelResult.getMessage());
+			}
 
-            var pixelToChange = pixelDao.findByXAndY(pixel.getX(), pixel.getY());
+			var pixelToChange = pixelDao.findByXAndY(pixel.getX(), pixel.getY());
 
-            pixelToChange.setColor(finalPixelResult.getData().getColor());
+			pixelToChange.setColor(finalPixelResult.getData().getColor());
 
-            pixelDao.save(pixelToChange);
-            pixelLogService.addPixelLog(pixelToChange, pixelToChange.getColor(), ipAddress);
+			pixelDao.save(pixelToChange);
+			pixelLogService.addPixelLog(pixelToChange, pixelToChange.getColor(), ipAddress);
 
-            return new SuccessDataResult<>(pixelToChange, Messages.pixelColorChanged);
-        }
+			return new SuccessDataResult<>(pixelToChange, Messages.pixelColorChanged);
+		}
 
 
 		//pixel rengi doğru mu?
@@ -371,41 +371,43 @@ public class PixelManager implements PixelService {
 	}
 
 
-	private DecryptedResult decryptedCoord(long encryptedValLong){
+	private DecryptedResult decryptedCoord(long encryptedValLong) {
 		int encryptedVal = (int) encryptedValLong;
-		long currentUnixTime = System.currentTimeMillis() / 1000L;
-		int currentWindow = (int) (currentUnixTime/60);
 
+		final int TIME_STEP = 10;
+		final int SECRET_SALT = 68524471;
+		final int MIXING_PRIME = (int) 2654435761L;
+
+		long currentUnixTime = System.currentTimeMillis() / 1000L;
+		int currentWindow = (int) (currentUnixTime / TIME_STEP);
 
 		int[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};
-
 
 		int maxX = Integer.parseInt(canvasMaxPixelX);
 		int maxY = Integer.parseInt(canvasMaxPixelY);
 
 		for (int window : possibleWindows) {
-			int unpacked = encryptedVal ^ window ^ 68524471;
+			int timeKey = window * MIXING_PRIME;
+
+			int unpacked = encryptedVal ^ SECRET_SALT ^ timeKey;
 
 			int magicCheck = (unpacked >>> 24) & 0xFF;
 
-			int x = (unpacked >>> 12) & 0xFFF;
-
-			int y = unpacked & 0xFFF;
-
-
 			if (magicCheck == 0xA5) {
-				if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
+				int x = (unpacked >>> 12) & 0xFFF;
+				int y = unpacked & 0xFFF;
+
+				if (x >= 0 && x <= maxX && y >= 0 && y <= maxY) {
 					return new DecryptedResult(x, y, true);
 				} else {
-					System.out.println("Security: Magic number matched but coords out of bounds.");
+					System.out.println("Security: Magic matched but out of bounds.");
 					return new DecryptedResult(0, 0, false);
 				}
 			}
 		}
 
-		System.out.println("Failed to decrypt coordinates for encrypted value: " + encryptedVal);
-		return new DecryptedResult(0,0, false);
-
+		System.out.println("Failed to decrypt coordinates. Sync drift or attack.");
+		return new DecryptedResult(0, 0, false);
 	}
 
 
