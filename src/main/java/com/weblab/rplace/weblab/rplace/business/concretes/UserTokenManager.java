@@ -98,9 +98,11 @@ public class UserTokenManager implements UserTokenService {
         }
 
 
+        /*
         if (userToken.isUsed()) {
             return new ErrorResult(Messages.tokenUsed);
         }
+         */
 
 
         userToken.setUsed(true);
