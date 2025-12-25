@@ -134,7 +134,8 @@ public class PixelManager implements PixelService {
 			return new ErrorDataResult(userTokenResult.getMessage());
 		}
 		var userToken = userTokenResult.getData();
-		if (userToken.getValidUntil().isBefore(LocalDateTime.now())) {
+		LocalDateTime validUntil = userToken.getValidUntil();
+		if (validUntil == null || validUntil.isBefore(LocalDateTime.now())) {
 			return new ErrorDataResult(Messages.tokenExpired);
 		}
 
