@@ -374,7 +374,7 @@ public class PixelManager implements PixelService {
 	private DecryptedResult decryptedCoord(long encryptedValLong){
 		int encryptedVal = (int) encryptedValLong;
 		long currentUnixTime = System.currentTimeMillis() / 1000L;
-		int currentWindow = (int) (currentUnixTime/10);
+		int currentWindow = (int) (currentUnixTime/60);
 
 
 		int[] possibleWindows = {currentWindow, currentWindow - 1, currentWindow + 1};

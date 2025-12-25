@@ -68,5 +68,5 @@ public class Messages {
     public static String finalPixelFound;
     public static String tokenUsed = "Token kullanıldı!";
     public static String unixTimeListed = "Unix zamanları listelendi!";
-    public static String invalidOrExpiredRequest = "Geçersiz veya süresi dolmuş istek!";
+    public static String invalidOrExpiredRequest = "Başarısız istek!";
 }
