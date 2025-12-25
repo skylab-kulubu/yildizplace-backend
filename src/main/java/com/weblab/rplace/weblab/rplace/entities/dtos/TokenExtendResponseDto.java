@@ -13,6 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class TokenExtendResponseDto {
 
-    private long remainingSeconds;
+    private long validUntil;
 
 }

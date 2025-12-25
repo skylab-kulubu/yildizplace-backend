@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 
@@ -174,11 +175,12 @@ public class UserTokenManager implements UserTokenService {
         userToken.setValidUntil(newExpiryDate);
         userTokenDao.save(userToken);
 
-        long remainingSeconds =
-                Duration.between(LocalDateTime.now(), newExpiryDate).getSeconds();
+        long unixValidUntil = newExpiryDate
+                .atZone(ZoneId.systemDefault())
+                .toEpochSecond();
 
-        TokenExtendResponseDto responseDto =
-                new TokenExtendResponseDto(remainingSeconds);
+        TokenExtendResponseDto responseDto = new TokenExtendResponseDto();
+        responseDto.setValidUntil(unixValidUntil);
 
         return new SuccessDataResult<>(responseDto, Messages.tokenExtended);
     }
