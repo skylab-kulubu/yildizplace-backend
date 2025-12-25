@@ -2,6 +2,7 @@ package com.weblab.rplace.weblab.rplace.business.constants;
 
 
 import com.weblab.rplace.weblab.rplace.entities.Pixel;
+import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendResponseDto;
 
 public class Messages {
 
@@ -69,4 +70,8 @@ public class Messages {
     public static String tokenUsed = "Token kullanıldı!";
     public static String unixTimeListed = "Unix zamanları listelendi!";
     public static String invalidOrExpiredRequest = "Başarısız istek!";
+    public static String turnstileVerificationFailed = "Turnstile doğrulaması başarısız oldu!";
+    public static String tokenInvalid= "Token geçersiz!";
+    public static String tokenExtended = "Token süresi uzatıldı!";
+    public static String tokenExpired = "Token süresi doldu!";
 }

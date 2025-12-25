@@ -55,6 +55,7 @@ public class SecurityConfig{
                                .requestMatchers("/api/users/addModerator").hasAnyRole("ADMIN")
                                .requestMatchers("/api/users/removeModerator").hasAnyRole("ADMIN")
 
+                               .requestMatchers("/api/userTokens/extendToken").hasAnyRole("USER", "ADMIN", "MODERATOR")
                                .requestMatchers("/api/userTokens/**").hasAnyRole("ADMIN", "MODERATOR")
 
                                .requestMatchers("/api/bans/**").hasAnyRole("ADMIN", "MODERATOR")

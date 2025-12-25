@@ -3,6 +3,7 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 import java.util.List;
 
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
@@ -26,6 +27,7 @@ public class PixelController {
     private final PixelService pixelService;
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final TurnstileService turnstileService;
 
 
     @PostMapping("/addPixel")
@@ -56,7 +58,6 @@ public class PixelController {
 
     @PostMapping("/addProtectedPixel")
     public ResponseEntity<Result> addProtectedPixel(@RequestBody ProtectedPixelRequestDto protectedPixelRequestDto, HttpServletRequest request){
-
         String ipAddress = request.getRemoteAddr();
 
         String forwardedFor = request.getHeader("X-Forwarded-For");

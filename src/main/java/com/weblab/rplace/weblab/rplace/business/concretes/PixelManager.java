@@ -1,5 +1,6 @@
 package com.weblab.rplace.weblab.rplace.business.concretes;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -39,6 +40,7 @@ public class PixelManager implements PixelService {
 	private final BanService banService;
 
 	private final FinalPixelService finalPixelService;
+	private final UserTokenService userTokenService;
 
 	@Value("${canvas.max.pixel.x}")
 	private String canvasMaxPixelX;
@@ -52,12 +54,13 @@ public class PixelManager implements PixelService {
 	@Value("${final.pixel.enabled}")
 	private Boolean isFinalPixelEnabled;
 
-	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService) {
+	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService, UserTokenService userTokenService) {
 		this.banService = banService;
 		this.pixelDao = pixelDao;
 		this.pixelLogService = pixelLogService;
 		this.userService = userService;
 		this.finalPixelService = finalPixelService;
+		this.userTokenService = userTokenService;
 	}
 
 	@Override
@@ -125,6 +128,17 @@ public class PixelManager implements PixelService {
 		if(userBanResult.isSuccess()){
 			return new ErrorDataResult(userBanResult.getMessage());
 		}
+
+		var userTokenResult = userTokenService.getAuthenticatedUsersToken();
+		if (!userTokenResult.isSuccess()) {
+			return new ErrorDataResult(userTokenResult.getMessage());
+		}
+		var userToken = userTokenResult.getData();
+		if (userToken.getValidUntil().isBefore(LocalDateTime.now())) {
+			return new ErrorDataResult(Messages.tokenExpired);
+		}
+
+
 
 
 		if(!CheckIfLastPlacedTimeCorrect(userResult.getData())){

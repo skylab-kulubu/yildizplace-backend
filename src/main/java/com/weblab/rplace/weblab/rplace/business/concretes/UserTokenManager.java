@@ -4,12 +4,19 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
+import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendRequestDto;
+import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendResponseDto;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -20,9 +27,12 @@ public class UserTokenManager implements UserTokenService {
 
     private final UserService userService;
 
-    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao) {
+    private final TurnstileService turnstileService;
+
+    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService) {
         this.userService = userService;
         this.userTokenDao = userTokenDao;
+        this.turnstileService = turnstileService;
     }
 
     @Override
@@ -138,6 +148,54 @@ public class UserTokenManager implements UserTokenService {
         }
 
         return new SuccessDataResult<List<UserToken>>(result, Messages.tokenFound);
+    }
+
+    @Override
+    public DataResult<TokenExtendResponseDto> extendToken(TokenExtendRequestDto tokenExtendRequestDto) {
+
+        var authTokenResult = getAuthenticatedUsersToken();
+        if (!authTokenResult.isSuccess()) {
+            return new ErrorDataResult<>(Messages.tokenNotFound);
+        }
+
+        var userToken = authTokenResult.getData();
+
+        if (userToken == null){
+            return new ErrorDataResult<>(Messages.tokenNotFound);
+        }
+
+        boolean isTurnstileValid = turnstileService.verifyToken(tokenExtendRequestDto.getSecurityToken());
+
+        if (!isTurnstileValid){
+            return new ErrorDataResult<>(Messages.turnstileVerificationFailed);
+        }
+
+        LocalDateTime newExpiryDate = LocalDateTime.now().plusMinutes(1);
+        userToken.setValidUntil(newExpiryDate);
+        userTokenDao.save(userToken);
+
+        long remainingSeconds =
+                Duration.between(LocalDateTime.now(), newExpiryDate).getSeconds();
+
+        TokenExtendResponseDto responseDto =
+                new TokenExtendResponseDto(remainingSeconds);
+
+        return new SuccessDataResult<>(responseDto, Messages.tokenExtended);
+    }
+
+    @Override
+    public DataResult<UserToken> getAuthenticatedUsersToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth != null && auth.getCredentials() != null) {
+            String token = auth.getCredentials().toString();
+            UserToken userToken = userTokenDao.findByToken(token);
+            if (userToken != null) {
+                return new SuccessDataResult<UserToken>(userToken, Messages.tokenFound);
+            }
+        }
+
+        return new ErrorDataResult<UserToken>(Messages.tokenNotFound);
     }
 
 

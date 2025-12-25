@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -32,6 +33,9 @@ public class UserToken {
 
     @Column(name = "token")
     private String token;
+
+    @Column(name = "valid_until")
+    private LocalDateTime validUntil;
 
     @Column(name = "user_ip")
     private String userIp;

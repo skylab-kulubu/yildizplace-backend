@@ -9,13 +9,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ProtectedPixelRequestDto {
-
-    private String color;
-
-    private long number;
+public class TokenExtendRequestDto {
 
     private String securityToken;
-
 
 }
