@@ -141,7 +141,6 @@ public class PixelManager implements PixelService {
 
 
 
-
 		if(!CheckIfLastPlacedTimeCorrect(userResult.getData())){
 			return new ErrorDataResult(Messages.lastPlacedTimeMustBeCorrect);
 		}
@@ -365,13 +364,30 @@ public class PixelManager implements PixelService {
 	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<Pixel> addProtectedPixel(ProtectedPixelRequestDto protectedPixelRequestDto, String ipAddress) {
 
+		var userTokenResult = userTokenService.getAuthenticatedUsersToken();
+		if (!userTokenResult.isSuccess()) {
+			return new ErrorDataResult<>(userTokenResult.getMessage());
+		}
+		var userToken = userTokenResult.getData();
+
+		String incomingToken = protectedPixelRequestDto.getToken();
+		String savedToken = userToken.getCloudflareToken();
+
+		if (savedToken == null || !savedToken.equals(incomingToken)) {
+			return new ErrorDataResult<>(Messages.tokenInvalidOrNotMatched);
+		}
+
+		if (userToken.getValidUntil() == null || userToken.getValidUntil().isBefore(LocalDateTime.now())) {
+			return new ErrorDataResult<>(Messages.tokenExpired);
+		}
+
+
 		DecryptedResult decrypted = decryptedCoord(protectedPixelRequestDto.getNumber());
 		if (!decrypted.isValid()){
 
 			System.out.println("Decryption failed for number: " + protectedPixelRequestDto.getNumber());
 
 			return new ErrorDataResult<>(Messages.invalidOrExpiredRequest);
-
 		}
 
 		Pixel pixelToSend = Pixel.builder()

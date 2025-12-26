@@ -37,6 +37,9 @@ public class UserToken {
     @Column(name = "valid_until")
     private LocalDateTime validUntil;
 
+    @Column(name = "cloudflare_token", length = 2048)
+    private String cloudflareToken;
+
     @Column(name = "user_ip")
     private String userIp;
 
