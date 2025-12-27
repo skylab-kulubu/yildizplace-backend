@@ -15,7 +15,7 @@ public class ProtectedPixelRequestDto {
 
     private long number;
 
-    private String securityToken;
+    private String token;
 
 
 }

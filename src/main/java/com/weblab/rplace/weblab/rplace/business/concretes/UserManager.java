@@ -92,7 +92,7 @@ public class UserManager implements UserService, UserDetailsService {
 
         String body= "<body style=\"margin:10px;padding:0 20px;font-family:Arial,sans-serif;background-color:#f8f8f8\">\n" +
                 "<div style=\"padding:0 20px;border:2px solid #000;box-shadow:8px 8px 0 rgba(0,0,0,.75);background-color:#fff\">\n" +
-                "<h1>YıldızPlace Katılım Bağlantısı</h1>\n" +
+                "<h1>SKY LAB YıldızPlace Katılım Bağlantısı</h1>\n" +
                 "<p>Aşağıdaki butona tıklayarak etkinliğimize katılabilir ve topluluğumuzun renkli dünyasına adım atabilirsiniz. Her birinizin katkısı bizim için önemli!</p>\n" +
                 "<a href=\"https://place.yildizskylab.com/play?token="+token+"\" target=_blank style=\"display:inline-block;background-color:#fd4509;color:#fff;text-decoration:none;font-size:16px;margin-bottom:6px;padding:15px 30px;border:2px solid #000;box-shadow:8px 8px 0 rgba(0,0,0,.75)\">Katılmak için Tıkla</a>\n" +
                 "<p style=font-size:12px>Buton çalışmıyor ise bu <a href=\"https://place.yildizskylab.com/play?token="+token+"\">link</a> üzerinden katılabilirsiniz. <br>Unutmayınız, link kişiye özeldir. <b>Kimse ile paylaşmayınız.<b></b></p>\n" +

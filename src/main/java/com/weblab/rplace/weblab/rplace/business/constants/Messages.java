@@ -74,4 +74,6 @@ public class Messages {
     public static String tokenInvalid= "Token geçersiz!";
     public static String tokenExtended = "Token süresi uzatıldı!";
     public static String tokenExpired = "Token süresi doldu!";
+    public static String tokenInvalidOrNotMatched = "Token geçersiz veya eşleşmiyor!";
+    public static String tooManyRequests = "Çok fazla istek!";
 }

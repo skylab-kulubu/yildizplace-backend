@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.*;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.utilities.ratelimit.RateLimitService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
 import com.weblab.rplace.weblab.rplace.entities.Role;
@@ -15,12 +16,11 @@ import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
+import io.github.bucket4j.Bucket;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +41,7 @@ public class PixelManager implements PixelService {
 
 	private final FinalPixelService finalPixelService;
 	private final UserTokenService userTokenService;
+	private final RateLimitService rateLimitService;
 
 	@Value("${canvas.max.pixel.x}")
 	private String canvasMaxPixelX;
@@ -54,13 +55,14 @@ public class PixelManager implements PixelService {
 	@Value("${final.pixel.enabled}")
 	private Boolean isFinalPixelEnabled;
 
-	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService, UserTokenService userTokenService) {
+	public PixelManager(BanService banService, PixelDao pixelDao, @Lazy PixelLogService pixelLogService, UserService userService, FinalPixelService finalPixelService, UserTokenService userTokenService, RateLimitService rateLimitService) {
 		this.banService = banService;
 		this.pixelDao = pixelDao;
 		this.pixelLogService = pixelLogService;
 		this.userService = userService;
 		this.finalPixelService = finalPixelService;
 		this.userTokenService = userTokenService;
+		this.rateLimitService = rateLimitService;
 	}
 
 	@Override
@@ -72,7 +74,6 @@ public class PixelManager implements PixelService {
 
 
 	@Override
-	@Cacheable(value = "colors", key = "#root.methodName", unless = "#result == null")
 	public DataResult<List<String>> getColors() {
 
 		var result = pixelDao.findAllByOrderByXAscYAsc();
@@ -98,7 +99,6 @@ public class PixelManager implements PixelService {
 
 
 	@Override
-	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<Pixel> addPixel(Pixel pixel, String ipAddress) {
 		var loggedInUserResult = userService.getAuthenticatedUser();
 
@@ -138,7 +138,6 @@ public class PixelManager implements PixelService {
 		if (validUntil == null || validUntil.isBefore(LocalDateTime.now())) {
 			return new ErrorDataResult(Messages.tokenExpired);
 		}
-
 
 
 
@@ -318,7 +317,6 @@ public class PixelManager implements PixelService {
 
 	@Transactional
 	@Override
-	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<FillDto> fill(FillDto fillDto, String ipAddress) {
 
 		if(!CheckIfColorsCorrect(Pixel.builder().color(fillDto.getColor()).build())){
@@ -344,7 +342,6 @@ public class PixelManager implements PixelService {
 	}
 
 	@Override
-	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<FillDto> bringBackPreviousPixels(FillDto fillDto, String ipAddress) {
 
 		if (fillDto.getStartX() > fillDto.getEndX() || fillDto.getStartY() > fillDto.getEndY()) {
@@ -362,8 +359,32 @@ public class PixelManager implements PixelService {
 	}
 
 	@Override
-	@CacheEvict(value = "colors", allEntries = true)
 	public DataResult<Pixel> addProtectedPixel(ProtectedPixelRequestDto protectedPixelRequestDto, String ipAddress) {
+
+		var userTokenResult = userTokenService.getAuthenticatedUsersToken();
+		if (!userTokenResult.isSuccess()) {
+			return new ErrorDataResult<>(userTokenResult.getMessage());
+		}
+		var userToken = userTokenResult.getData();
+
+		Bucket bucket = rateLimitService.resolveBucket(String.valueOf(userToken.getUserId()));
+
+		if (!bucket.tryConsume(1)) {
+			return new ErrorDataResult<>(Messages.tooManyRequests);
+		}
+
+
+		String incomingToken = protectedPixelRequestDto.getToken();
+		String savedToken = userToken.getCloudflareToken();
+
+		if (savedToken == null || !savedToken.equals(incomingToken)) {
+			return new ErrorDataResult<>(Messages.tokenInvalidOrNotMatched);
+		}
+
+		if (userToken.getValidUntil() == null || userToken.getValidUntil().isBefore(LocalDateTime.now())) {
+			return new ErrorDataResult<>(Messages.tokenExpired);
+		}
+
 
 		DecryptedResult decrypted = decryptedCoord(protectedPixelRequestDto.getNumber());
 		if (!decrypted.isValid()){
@@ -371,7 +392,6 @@ public class PixelManager implements PixelService {
 			System.out.println("Decryption failed for number: " + protectedPixelRequestDto.getNumber());
 
 			return new ErrorDataResult<>(Messages.invalidOrExpiredRequest);
-
 		}
 
 		Pixel pixelToSend = Pixel.builder()

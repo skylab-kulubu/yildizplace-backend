@@ -1,27 +1,37 @@
 version: '3.8'
 
 services:
-  app:
+  yildizplace-app:
     build: .
-    ports:
-      - "443:443"
+      #    ports:
+    #      - "9001:9001"
+    restart: unless-stopped
+    container_name: yildizplace-app
     depends_on:
-      - db
-      - redis
+      - yildizplace-db
+    networks:
+      - skynet
 
-  db:
+  yildizplace-db:
     image: postgres:17
+    restart: unless-stopped
     environment:
       POSTGRES_DB: yildizplace
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+        #    ports:
+      #      - "5432:5432"
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - yildizplace_db_data:/var/lib/postgresql/data
+    container_name: yildizplace-db
+    networks:
+      - skynet
 
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    command: ["redis-server"]
+
+networks:
+  skynet:
+    external: true
+
+
+volumes:
+  yildizplace_db_data:

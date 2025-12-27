@@ -171,8 +171,9 @@ public class UserTokenManager implements UserTokenService {
             return new ErrorDataResult<>(Messages.turnstileVerificationFailed);
         }
 
-        LocalDateTime newExpiryDate = LocalDateTime.now().plusMinutes(1);
+        LocalDateTime newExpiryDate = LocalDateTime.now().plusSeconds(90);
         userToken.setValidUntil(newExpiryDate);
+        userToken.setCloudflareToken(tokenExtendRequestDto.getSecurityToken());
         userTokenDao.save(userToken);
 
         long unixValidUntil = newExpiryDate
