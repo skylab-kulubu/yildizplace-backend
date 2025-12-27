@@ -24,6 +24,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 public class UserManager implements UserService, UserDetailsService {
@@ -51,6 +52,8 @@ public class UserManager implements UserService, UserDetailsService {
 
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
+
+        schoolMail = schoolMail.trim().toLowerCase();
 
         if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
@@ -185,7 +188,13 @@ public class UserManager implements UserService, UserDetailsService {
     }
 
     private boolean CheckIfSchoolMailCorrect(String schoolMail) {
-        return schoolMail.endsWith("@std.yildiz.edu.tr");
+        if (schoolMail == null || schoolMail.isEmpty()) {
+            return false;
+        }
+
+        String regex = "^[a-z0-9.]+@std\\.yildiz\\.edu\\.tr$";
+
+        return Pattern.matches(regex, schoolMail.toLowerCase());
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
+import com.weblab.rplace.weblab.rplace.entities.dtos.RegisterRequestDto;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,8 +27,8 @@ public class UserController {
     @Value("${domain}")
     private String domain;
 
-    @GetMapping("/register")
-    public Result registerUser(@RequestParam String schoolMail, HttpServletRequest request){
+    @PostMapping("/register")
+    public Result registerUser(@RequestBody RegisterRequestDto registerRequestDto, HttpServletRequest request){
         String ipAddress = request.getRemoteAddr();
 
         String forwardedFor = request.getHeader("X-Forwarded-For");
@@ -35,10 +36,10 @@ public class UserController {
             ipAddress = forwardedFor.split(",")[0];
         }
 
-        return userService.registerUser(schoolMail, ipAddress);
+        return userService.registerUser(registerRequestDto.getSchoolMail(), ipAddress);
     }
 
-    @GetMapping("/login")
+    @PostMapping("/login")
     public ResponseEntity<Result> loginUser(@RequestParam String token, HttpServletResponse response){
         var tokenResult = userService.loginUser(token);
 
