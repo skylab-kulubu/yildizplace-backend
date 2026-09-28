@@ -17,6 +17,7 @@
 		<java.version>17</java.version>
 		<!-- 1.21.4+ speaks the Docker Engine 29 API (minimum API 1.44) -->
 		<testcontainers.version>1.21.4</testcontainers.version>
+		<greenmail.version>2.1.8</greenmail.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -77,6 +78,12 @@
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.icegreen</groupId>
+			<artifactId>greenmail-junit5</artifactId>
+			<version>${greenmail.version}</version>
 			<scope>test</scope>
 		</dependency>
 
