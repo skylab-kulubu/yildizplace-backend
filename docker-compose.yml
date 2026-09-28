@@ -1,37 +1,49 @@
-version: '3.8'
-
+# Local development only: Postgres 17, a fake SMTP server (Mailpit, UI on
+# http://localhost:8025) and the app on http://localhost:8080.
+# The values below are throwaway local values, not deployment settings.
 services:
-  yildizplace-app:
+  app:
     build: .
-      #    ports:
-    #      - "9001:9001"
-    restart: unless-stopped
-    container_name: yildizplace-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/yildizplace
+      SPRING_DATASOURCE_USERNAME: yildizplace
+      SPRING_DATASOURCE_PASSWORD: yildizplace
+      SPRING_MAIL_HOST: mail
+      SPRING_MAIL_PORT: "1025"
+      SPRING_MAIL_USERNAME: place@localhost
+      SPRING_MAIL_PASSWORD: local
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "false"
+      # Cloudflare's published test secret: every token passes.
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+      DOMAIN: localhost
     depends_on:
-      - yildizplace-db
-    networks:
-      - skynet
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
 
-  yildizplace-db:
-    image: postgres:17
-    restart: unless-stopped
+  db:
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: yildizplace
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-        #    ports:
-      #      - "5432:5432"
+      POSTGRES_USER: yildizplace
+      POSTGRES_PASSWORD: yildizplace
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yildizplace -d yildizplace"]
+      interval: 2s
+      retries: 30
     volumes:
-      - yildizplace_db_data:/var/lib/postgresql/data
-    container_name: yildizplace-db
-    networks:
-      - skynet
+      - db-data:/var/lib/postgresql/data
 
-
-networks:
-  skynet:
-    external: true
-
+  mail:
+    image: axllent/mailpit:v1.28
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "8025:8025"
 
 volumes:
-  yildizplace_db_data:
+  db-data:

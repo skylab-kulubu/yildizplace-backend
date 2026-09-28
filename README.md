@@ -26,155 +26,56 @@ YıldızPlace'e bu link üzerinden erişebilirsiniz:
 ## Proje Kurulumu
 
 ### Gereksinimler
-- Java 17
+- JDK 17 ya da üstü (imaj ve CI JDK 21 kullanır)
 - Maven
-- PostgreSQL
-- Redis
-- Docker (Docker ile kurulum için)
+- PostgreSQL (canlıda 17)
+- Docker (testler Testcontainers ile gerçek bir Postgres açar; yerel çalıştırma için de kullanılır)
 
-### 1. Manuel Kurulum
+### Yapılandırma: ortam değişkenleri
 
-1. **Depoyu Klonlayın:**
-   ```sh
-   git clone https://github.com/skylab-kulubu/yildizplace-backend.git
-   cd yildizplace-backend
-   ```
+Bütün yapılandırma ortam değişkenlerinden okunur (Spring'in ortam değişkeni eşlemesi: `spring.mail.host` ← `SPRING_MAIL_HOST`, `domain` ← `DOMAIN`). `application.properties` yalnız sır olmayan varsayılanları tutar; repoya sır ya da sunucuya özgü değer yazılmaz. Zorunlu bir değişken eksikse uygulama açılmaz.
 
-2. **Veritabanını Yapılandırın:**
-   PostgreSQL ve Redis sunucularını başlatın ve `src/main/resources/application.properties` dosyasındaki veritabanı yapılandırmasını güncelleyin.
+| Değişken | Zorunlu | Varsayılan | Açıklama |
+|---|---|---|---|
+| `SPRING_DATASOURCE_URL` | evet | | `jdbc:postgresql://<sunucu>:5432/<veritabanı>` |
+| `SPRING_DATASOURCE_USERNAME` | evet | | Veritabanı rolü |
+| `SPRING_DATASOURCE_PASSWORD` | evet (sır) | | Veritabanı parolası |
+| `SPRING_MAIL_HOST` | evet | | SMTP sunucusu. Mailler yalnız SMTP ile gider |
+| `SPRING_MAIL_USERNAME` | evet | | SMTP kullanıcısı; giriş mailleri bu adresten gönderilir |
+| `SPRING_MAIL_PASSWORD` | evet (sır) | | SMTP parolası |
+| `SPRING_MAIL_PORT` | hayır | `587` | SMTP portu |
+| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | hayır | `true` | SMTP kimlik doğrulaması |
+| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | hayır | `true` | STARTTLS. 465 portunda doğrudan TLS için `SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE=true` |
+| `TURNSTILE_SECRET_KEY` | evet (sır) | | Cloudflare Turnstile gizli anahtarı (`/api/userTokens/extendToken`) |
+| `DOMAIN` | evet | | Giriş çerezlerinin (`user_token`, `isAdmin`) `Domain` değeri |
+| `SERVER_PORT` | hayır | `8080` | HTTP portu |
+| `CANVAS_MAX_PIXEL_X` | hayır | `399` | Tuvalin en büyük x koordinatı (0'dan başlar) |
+| `CANVAS_MAX_PIXEL_Y` | hayır | `399` | Tuvalin en büyük y koordinatı |
+| `SCHOOL_MAIL_ENABLED` | hayır | `true` | Yalnız `@std.yildiz.edu.tr` adresleri giriş yapıp piksel koyabilir |
+| `FINAL_PIXEL_ENABLED` | hayır | `false` | Final piksellerini açar |
 
-3. **Bağımlılıkları Yükleyin ve Projeyi Derleyin:**
-   ```sh
-   mvn clean install
-   ```
+### Yerel çalıştırma (Docker Compose)
 
-4. **Uygulamayı Başlatın:**
-   ```sh
-   mvn spring-boot:run
-   ```
-
-### 2. Docker ile Kurulum
-
-1. **Depoyu Klonlayın:**
-   ```sh
-   git clone https://github.com/skylab-kulubu/yildizplace-backend.git
-   cd yildizplace-backend
-   ```
-
-2. **Docker ve Docker Compose Yükleyin:**
-   Docker ve Docker Compose'un yüklü olduğundan emin olun.
-
-3. **Docker Compose ile Uygulamayı Başlatın:**
-   ```sh
-   docker-compose up --build
-   ```
-
-### 3. Dockerfile
-
-```dockerfile
-FROM maven:3.8.4-openjdk-17 AS build
-
-WORKDIR /app
-
-COPY pom.xml .
-
-RUN mvn dependency:go-offline -B
-
-COPY src/ ./src/
-
-RUN mvn -f /app/pom.xml clean package -DskipTests
-
-FROM openjdk:17-jdk-slim
-
-EXPOSE 443
-
-COPY --from=build /app/target/*.jar /app/app.jar
-
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+```sh
+docker compose up --build
 ```
 
-### 4. docker-compose.yml
+Postgres 17, sahte bir SMTP sunucusu (Mailpit) ve uygulama açılır. API `http://localhost:8080`, giden mailler `http://localhost:8025` adresinde görünür. Compose dosyasındaki değerler yalnız yerel geliştirme içindir.
 
-```yaml
-version: '3.8'
+### Testler
 
-services:
-   app:
-      build: .
-      ports:
-         - "443:443"
-      depends_on:
-         - db
-         - redis
-
-   db:
-      image: postgres:latest
-      environment:
-         POSTGRES_DB: yildizplace
-         POSTGRES_USER: postgres
-         POSTGRES_PASSWORD: postgres
-      ports:
-         - "5432:5432"
-
-   redis:
-      image: redis:latest
-      ports:
-         - "6379:6379"
-      command: ["redis-server"]
+```sh
+mvn test
 ```
 
-### 5. application.properties
+Docker çalışıyor olmalı: testler Testcontainers ile bir Postgres 17 açar. `LoginCodeMailTests`, giriş bağlantısı istendiğinde mailin SMTP ile (GreenMail) doğru adrese gittiğini doğrular.
 
-```ini
-spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.hibernate.show-sql=true
-spring.datasource.driver-class-name=org.postgresql.Driver
+### İmaj ve yayın
 
-# Change port
-server.port=443
+`.github/workflows/ghcr.yml`:
 
-# Database configuration
-spring.datasource.url=jdbc:postgresql://db:5432/yildizplace
-spring.datasource.username=postgres
-spring.datasource.password=postgres
+- **PR:** testler koşar, imaj derlenir, bir Postgres servis konteynerine karşı açılır ve `GET /api/pixels/getColors` isteğinin `200` döndüğü yoklanır (oturum gerektirmez, veritabanına dokunur).
+- **`main`'e push:** `ghcr.io/skylab-kulubu/yildizplace-backend:latest` ve `:<sha>`. Canlıya dokunmaz.
+- **`production`'a push:** `:production` ve `:<sha>`; ardından `DOKPLOY_DEPLOY_HOOK` repo sırrı tanımlıysa Dokploy deploy webhook'u çağrılır (tanımlı değilse adım atlanır).
 
-server.servlet.session.cookie.same-site=strict
-
-spring.jpa.properties.javax.persistence.validation.mode = none
-#spring.main.allow-circular-references = true
-
-# Redis Configuration
-spring.data.redis.host=redis
-spring.data.redis.port=6379
-spring.data.redis.timeout=10000ms
-spring.data.redis.lettuce.pool.max-active=8
-spring.data.redis.lettuce.pool.max-wait=-1ms
-spring.data.redis.lettuce.pool.max-idle=8
-spring.data.redis.lettuce.pool.min-idle=8
-
-# Cache Configuration
-spring.cache.type=redis
-##spring.cache.redis.time-to-live=30
-spring.cache.redis.cache-null-values=false
-
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-
-# Mail configuration for Gmail
-spring.mail.host=host
-spring.mail.port=587
-spring.mail.password=sifre
-spring.mail.username=mail
-
-#OPTIONAL - IF YOU DONT WANT TO USE JAVA MAIL SERVER YOU CAN USE RESEND
-#BY DEFAULT JAVA MAIL SENDER IS BEING USED
-resend.api.key=your_resend_api_key
-
-# Disable security
-# security.ignored=/**
-```
-
-### 6. Notlar
-- `application.properties` dosyasındaki yapılandırmaları ihtiyacınıza göre güncelleyin.
-- SSL sertifikalarının doğru şekilde yapılandırıldığından emin olun.
+Yayın, `main`'den `production`'a squash PR ile yapılır. İmaj `linux/amd64`'tür.
