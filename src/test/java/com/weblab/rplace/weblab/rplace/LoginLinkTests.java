@@ -15,11 +15,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.Duration;
 
 import static com.weblab.rplace.weblab.rplace.MailLogin.openLink;
+import static com.weblab.rplace.weblab.rplace.PlaceApi.placeAPixelWith;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -74,7 +74,7 @@ class LoginLinkTests {
 				.andReturn().getResponse().getCookie("user_token");
 
 		assertThat(session.getValue()).isNotEqualTo(link);
-		placeAPixelWith(session).andExpect(status().isOk());
+		placeAPixelWith(mockMvc, session).andExpect(status().isOk());
 	}
 
 	@Test
@@ -103,7 +103,7 @@ class LoginLinkTests {
 		String link = requestLink("mehmet.can@std.yildiz.edu.tr");
 		openLink(mockMvc, link).andExpect(jsonPath("$.success").value(true));
 
-		placeAPixelWith(new Cookie("user_token", link)).andExpect(status().isForbidden());
+		placeAPixelWith(mockMvc, new Cookie("user_token", link)).andExpect(status().isForbidden());
 	}
 
 	@Test
@@ -120,7 +120,7 @@ class LoginLinkTests {
 	void aSessionFromBeforeTheUpgradeKeepsWorking() throws Exception {
 		String session = rowFromBeforeTheUpgrade("burak.yildiz@std.yildiz.edu.tr", "pre-upgrade-session", true);
 
-		placeAPixelWith(new Cookie("user_token", session)).andExpect(status().isOk());
+		placeAPixelWith(mockMvc, new Cookie("user_token", session)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -147,10 +147,6 @@ class LoginLinkTests {
 				SELECT id, ?, now(), '127.0.0.1', ?, CASE WHEN ? THEN now() END FROM users WHERE school_mail = ?""",
 				token, opened, opened, schoolMail);
 		return token;
-	}
-
-	private ResultActions placeAPixelWith(Cookie userToken) throws Exception {
-		return PlaceApi.placeAPixelWith(mockMvc, userToken);
 	}
 
 }

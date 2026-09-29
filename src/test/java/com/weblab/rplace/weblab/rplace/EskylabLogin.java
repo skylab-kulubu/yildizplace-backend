@@ -29,7 +29,7 @@ final class EskylabLogin {
 	}
 
 	/** Where the login endpoint sent the browser, and the cookie it set there. */
-	record Started(URI authorizationRequest, Cookie browser, MockHttpServletResponse response) {
+	record Started(URI authorizationRequest, Cookie browser) {
 
 		Map<String, String> parameters() {
 			return queryOf(authorizationRequest);
@@ -45,7 +45,7 @@ final class EskylabLogin {
 		MockHttpServletResponse response = mockMvc.perform(request)
 				.andExpect(status().isFound())
 				.andReturn().getResponse();
-		return new Started(URI.create(response.getRedirectedUrl()), response.getCookie(BROWSER_COOKIE), response);
+		return new Started(URI.create(response.getRedirectedUrl()), response.getCookie(BROWSER_COOKIE));
 	}
 
 	/** The browser follows Keycloak's redirect back to the backend, carrying the given cookie (or none). */

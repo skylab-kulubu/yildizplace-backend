@@ -143,8 +143,10 @@ public class UserManager implements UserService, UserDetailsService {
         return !isSchoolMailEnabled || CheckIfSchoolMailCorrect(schoolMail);
     }
 
+    // Serialized: school_mail has no unique constraint, and silent e-skylab logins in two tabs
+    // can arrive together for a new person. Place runs as a single instance.
     @Override
-    public User findOrCreateUser(String schoolMail) {
+    public synchronized User findOrCreateUser(String schoolMail) {
         User user = userDao.findBySchoolMail(schoolMail);
         if(user == null){
             user = new User();
