@@ -2,6 +2,7 @@ package com.weblab.rplace.weblab.rplace.core.configs;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.core.security.TokenAuthFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +37,8 @@ public class SecurityConfig{
                .authorizeHttpRequests(x ->
                        x
                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                               // Spring's error page; without it every 400/405/500 on a public endpoint shows as a bare 403.
+                               .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 
                                .requestMatchers("/api/pixels/addPixel").hasAnyRole("ADMIN", "MODERATOR")
                                .requestMatchers("/api/pixels/getBoard").hasAnyRole("ADMIN", "MODERATOR")
