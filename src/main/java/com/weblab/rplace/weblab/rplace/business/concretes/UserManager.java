@@ -5,12 +5,14 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.RandomTokens;
 import com.weblab.rplace.weblab.rplace.core.utilities.mail.EmailService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
 import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import com.weblab.rplace.weblab.rplace.entities.UserTokenKind;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
@@ -20,8 +22,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -53,9 +53,9 @@ public class UserManager implements UserService, UserDetailsService {
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
 
-        schoolMail = schoolMail.trim().toLowerCase();
+        schoolMail = User.normalizeSchoolMail(schoolMail);
 
-        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(schoolMail)){
+        if(!isSchoolMailAllowed(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
         }
 
@@ -81,17 +81,9 @@ public class UserManager implements UserService, UserDetailsService {
         }
 
 
-      User user = userDao.findBySchoolMail(schoolMail);
-        if(user == null){
-            user = new User();
-            user.setAuthorities(Set.of(Role.ROLE_USER));
-            user.setLastPlacedAt(null);
-            user.setSchoolMail(schoolMail);
+        User user = findOrCreateUser(schoolMail);
 
-            addUser(user);
-        }
-
-        String token = generateToken();
+        String token = RandomTokens.generate();
 
         String body= "<body style=\"margin:10px;padding:0 20px;font-family:Arial,sans-serif;background-color:#f8f8f8\">\n" +
                 "<div style=\"padding:0 20px;border:2px solid #000;box-shadow:8px 8px 0 rgba(0,0,0,.75);background-color:#fff\">\n" +
@@ -117,6 +109,7 @@ public class UserManager implements UserService, UserDetailsService {
                 .isUsed(false)
                 .createdAt(new Date())
                 .userIp(ipAddress)
+                .kind(UserTokenKind.LINK)
                 .build();
 
         userTokenService.addToken(userToken);
@@ -126,23 +119,44 @@ public class UserManager implements UserService, UserDetailsService {
     }
 
     @Override
-    public Result loginUser(String token) {
-        var tokenResult = userTokenService.validateToken(token);
+    public DataResult<User> logInWithLink(String linkToken) {
+        var linkResult = userTokenService.useLoginLink(linkToken);
 
-        if (!tokenResult.isSuccess()) {
-            return new ErrorResult(tokenResult.getMessage());
+        if (!linkResult.isSuccess()) {
+            return new ErrorDataResult<>(linkResult.getMessage());
         }
 
-        var userNameResult = userTokenService.getUserNameByToken(token);
-        if (!userNameResult.isSuccess()) {
-            return new ErrorResult(userNameResult.getMessage());
+        var userResult = getUserById(linkResult.getData().getUserId());
+        if (!userResult.isSuccess()) {
+            return new ErrorDataResult<>(userResult.getMessage());
         }
 
-        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userNameResult.getData())){
-            return new ErrorResult(Messages.invalidSchoolMail);
+        if(!isSchoolMailAllowed(userResult.getData().getSchoolMail())){
+            return new ErrorDataResult<>(Messages.invalidSchoolMail);
         }
 
-        return new SuccessResult(Messages.loginSuccess);
+        return new SuccessDataResult<>(userResult.getData(), Messages.loginSuccess);
+    }
+
+    @Override
+    public boolean isSchoolMailAllowed(String schoolMail) {
+        return !isSchoolMailEnabled || CheckIfSchoolMailCorrect(schoolMail);
+    }
+
+    // Serialized: school_mail has no unique constraint, and silent e-skylab logins in two tabs
+    // can arrive together for a new person. Place runs as a single instance.
+    @Override
+    public synchronized User findOrCreateUser(String schoolMail) {
+        User user = userDao.findBySchoolMail(schoolMail);
+        if(user == null){
+            user = new User();
+            user.setAuthorities(Set.of(Role.ROLE_USER));
+            user.setLastPlacedAt(null);
+            user.setSchoolMail(schoolMail);
+
+            addUser(user);
+        }
+        return user;
     }
 
     private boolean CheckIfMailCorrect(String schoolMail) {
@@ -156,7 +170,7 @@ public class UserManager implements UserService, UserDetailsService {
     private Result CheckIfMaxTokenCountReachedBySchoolMail(String schoolMail) {
         var maxTokenCountByUserPerHour = 5;
 
-        var result = userTokenService.getTokensBetweenDatesBySchoolMail(new Date(System.currentTimeMillis() - 3600000),
+        var result = userTokenService.getLoginLinksBetweenDatesBySchoolMail(new Date(System.currentTimeMillis() - 3600000),
                 new Date(), schoolMail);
 
         if (result.getData() == null) {
@@ -173,7 +187,7 @@ public class UserManager implements UserService, UserDetailsService {
     private Result CheckIfMaxTokenCountReachedByIp(String ipAddress) {
         var maxTokenCountByIpPerHour = 100;
 
-        var result = userTokenService.getTokensBetweenDatesByIp(new Date(System.currentTimeMillis() - 3600000),
+        var result = userTokenService.getLoginLinksBetweenDatesByIp(new Date(System.currentTimeMillis() - 3600000),
                 new Date(), ipAddress);
 
         if (result.getData() == null) {
@@ -227,62 +241,10 @@ public class UserManager implements UserService, UserDetailsService {
 
 
     @Override
-    public Result addModerator(String schoolMail) {
-        if(!CheckIfSchoolMailCorrect(schoolMail)){
-            return new ErrorResult(Messages.invalidSchoolMail);
-        }
-
-        var adminToAddResult = getUserBySchoolMail(schoolMail);
-
-        if(!adminToAddResult.isSuccess()){
-           return new ErrorResult(Messages.userDoesNotExist);
-        }
-
-        if(adminToAddResult.getData().getAuthorities().contains(Role.ROLE_MODERATOR)){
-            return new ErrorResult(Messages.userAlreadyModerator);
-        }
-
-        var user = adminToAddResult.getData();
-        user.addRole(Role.ROLE_MODERATOR);
-        userDao.save(user);
-        return new SuccessResult(Messages.moderatorAdded);
-    }
-
-    @Override
-    public Result removeModerator(String schoolMail) {
-        if(!CheckIfSchoolMailCorrect(schoolMail)){
-            return new ErrorResult(Messages.invalidSchoolMail);
-        }
-
-        var adminToRemoveResult = getUserBySchoolMail(schoolMail);
-
-        if(!adminToRemoveResult.isSuccess()){
-            return new ErrorResult(Messages.userDoesNotExist);
-        }
-
-        if(!adminToRemoveResult.getData().getAuthorities().contains(Role.ROLE_MODERATOR)){
-            return new ErrorResult(Messages.userNotModerator);
-        }
-
-        var user = adminToRemoveResult.getData();
-        user.getAuthorities().remove(Role.ROLE_MODERATOR);
-        userDao.save(user);
-        return new SuccessResult(Messages.moderatorRemoved);
-    }
-
-    @Override
     public DataResult<User> getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String usersSchoolMail = authentication.getName();
         return getUserBySchoolMail(usersSchoolMail);
-    }
-
-
-    private String generateToken() {
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomBytes = new byte[16];
-        secureRandom.nextBytes(randomBytes);
-        return Base64.getUrlEncoder().encodeToString(randomBytes);
     }
 
     @Override

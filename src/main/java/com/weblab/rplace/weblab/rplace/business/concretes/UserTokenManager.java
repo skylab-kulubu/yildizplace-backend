@@ -8,13 +8,16 @@ import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import com.weblab.rplace.weblab.rplace.entities.UserTokenKind;
 import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendRequestDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendResponseDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -30,10 +33,20 @@ public class UserTokenManager implements UserTokenService {
 
     private final TurnstileService turnstileService;
 
-    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService) {
+    private final Clock clock;
+
+    @Value("${place.login.link-ttl}")
+    private Duration loginLinkTtl;
+
+    // PLACE_LOGIN_LINK_SINGLE_USE; false lets a link log in again until it expires.
+    @Value("${place.login.link-single-use}")
+    private boolean loginLinkSingleUse;
+
+    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService, Clock clock) {
         this.userService = userService;
         this.userTokenDao = userTokenDao;
         this.turnstileService = turnstileService;
+        this.clock = clock;
     }
 
     @Override
@@ -59,72 +72,31 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<String> getUserNameByToken(String token) {
-        UserToken result = userTokenDao.findByToken(token);
-
-        if (result == null) {
-            return new ErrorDataResult<String>(null, Messages.tokenNotFound);
-        }
-
-        var usernameResult = userService.getUserById(result.getUserId());
-
-        if (!usernameResult.isSuccess()){
-            return new ErrorDataResult<String>(null,Messages.userNotFound);
-        }
-
-        String username = usernameResult.getData().getSchoolMail();
-
-        return new SuccessDataResult<String>(username, Messages.tokenFound);
-
+    public UserToken findSession(String sessionToken) {
+        return userTokenDao.findSessionByToken(sessionToken);
     }
 
     @Override
-    public DataResult<List<String>> getUserRolesByToken(String token) {
+    public DataResult<UserToken> useLoginLink(String token) {
+        Date now = Date.from(clock.instant());
+        Date createdAfter = new Date(now.getTime() - loginLinkTtl.toMillis());
 
-        var userTokenResult = getUserToken(token);
-
-        if (!userTokenResult.isSuccess()){
-            return new ErrorDataResult<List<String>>(null, userTokenResult.getMessage());
+        if (userTokenDao.useLink(token, now, createdAfter, !loginLinkSingleUse) == 0) {
+            return new ErrorDataResult<>(Messages.loginLinkInvalid);
         }
 
-        var userResult = userService.getUserById(userTokenResult.getData().getUserId());
-
-        if (!userResult.isSuccess()){
-            return new ErrorDataResult<List<String>>(null, userResult.getMessage());
-        }
-
-        List<String> roles = userResult.getData().getAuthorities().stream().map(authority -> authority.getAuthority()).toList();
-
-        return new SuccessDataResult<List<String>>(roles, Messages.tokenFound);
-
-
+        return new SuccessDataResult<>(userTokenDao.findByToken(token), Messages.tokenFound);
     }
 
     @Override
-    public Result validateToken(String token) {
-        UserToken userToken = userTokenDao.findByToken(token);
-
-        if (userToken == null) {
-            return new ErrorResult(Messages.tokenNotFound);
-        }
-
-
-        /*
-        if (userToken.isUsed()) {
-            return new ErrorResult(Messages.tokenUsed);
-        }
-         */
-
-
-        userToken.setUsed(true);
-        userToken.setUsedAt(new Date());
-        userTokenDao.save(userToken);
-        return new SuccessResult(Messages.tokenFound);
+    public Result endSession(String sessionToken) {
+        userTokenDao.deleteSession(sessionToken);
+        return new SuccessResult();
     }
 
     @Override
-    public DataResult<List<UserToken>> getTokensBetweenDatesByIp(Date startDate, Date endDate ,String ipAddress) {
-        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIp(startDate, endDate, ipAddress);
+    public DataResult<List<UserToken>> getLoginLinksBetweenDatesByIp(Date startDate, Date endDate ,String ipAddress) {
+        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIpAndKind(startDate, endDate, ipAddress, UserTokenKind.LINK);
 
         if (result == null) {
             return new ErrorDataResult<List<UserToken>>(Messages.tokenNotFound);
@@ -134,7 +106,7 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<List<UserToken>> getTokensBetweenDatesBySchoolMail(Date startDate, Date endDate, String schoolMail) {
+    public DataResult<List<UserToken>> getLoginLinksBetweenDatesBySchoolMail(Date startDate, Date endDate, String schoolMail) {
         DataResult<User> userResult = userService.getUserBySchoolMail(schoolMail);
 
         if (!userResult.isSuccess()) {
@@ -142,7 +114,7 @@ public class UserTokenManager implements UserTokenService {
         }
 
 
-        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserId(startDate, endDate, userResult.getData().getId());
+        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIdAndKind(startDate, endDate, userResult.getData().getId(), UserTokenKind.LINK);
 
         if (result == null) {
             return new ErrorDataResult<List<UserToken>>(Messages.tokenNotFound);

@@ -13,6 +13,7 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.entities.PixelLog;
 import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
+import com.weblab.rplace.weblab.rplace.entities.UserToken;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.ProtectedPixelRequestDto;
@@ -141,7 +142,7 @@ public class PixelManager implements PixelService {
 
 
 
-		if(!CheckIfLastPlacedTimeCorrect(userResult.getData())){
+		if(!CheckIfLastPlacedTimeCorrect(userResult.getData(), userToken)){
 			return new ErrorDataResult(Messages.lastPlacedTimeMustBeCorrect);
 		}
 
@@ -202,13 +203,14 @@ public class PixelManager implements PixelService {
 
 	}
 
-	private boolean CheckIfLastPlacedTimeCorrect(User user) {
+	// Admins and moderators do not wait between pixels: by the session's role, not the authorities table (ADR 0060).
+	private boolean CheckIfLastPlacedTimeCorrect(User user, UserToken session) {
 
 		if (user.getLastPlacedAt() == null) {
 			return true;
 		}
 
-		if(user.getAuthorities().contains(Role.ROLE_MODERATOR) || user.getAuthorities().contains(Role.ROLE_ADMIN)){
+		if(session.grantedRoles().contains(Role.ROLE_MODERATOR) || session.grantedRoles().contains(Role.ROLE_ADMIN)){
 			return true;
 		}
 

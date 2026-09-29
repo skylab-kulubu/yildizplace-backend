@@ -17,15 +17,17 @@ public interface UserTokenService {
 
     DataResult<List<UserToken>> getAll();
 
-    DataResult<String> getUserNameByToken(String token);
+    // The session with this user_token value, or null; login links are not sessions.
+    UserToken findSession(String sessionToken);
 
-    DataResult<List<String>> getUserRolesByToken(String token);
+    DataResult<UserToken> useLoginLink(String token);
 
-    Result validateToken(String token);
+    // Ends the session with this value; login links and unknown values are left alone.
+    Result endSession(String sessionToken);
 
-    DataResult<List<UserToken>> getTokensBetweenDatesByIp(Date startDate, Date endDate , String ipAddress);
+    DataResult<List<UserToken>> getLoginLinksBetweenDatesByIp(Date startDate, Date endDate , String ipAddress);
 
-    DataResult<List<UserToken>> getTokensBetweenDatesBySchoolMail(Date startDate, Date endDate , String schoolMail);
+    DataResult<List<UserToken>> getLoginLinksBetweenDatesBySchoolMail(Date startDate, Date endDate , String schoolMail);
 
     DataResult<TokenExtendResponseDto> extendToken(TokenExtendRequestDto tokenVerifyRequestDto);
 
