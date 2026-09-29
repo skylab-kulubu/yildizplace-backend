@@ -2,35 +2,39 @@ package com.weblab.rplace.weblab.rplace;
 
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.time.Duration;
+
 import static com.weblab.rplace.weblab.rplace.MailLogin.openLink;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The mailed login link logs in once. Opening it starts a session under a new
- * value in the user_token cookie; the link value itself never is a session.
+ * With PLACE_LOGIN_LINK_SINGLE_USE=true the mailed login link logs in once. Opening
+ * it starts a session under a new value in the user_token cookie; the link value
+ * itself never is a session. ReusableLoginLinkTests covers the default, false.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(PostgresTestcontainer.class)
+@Import({PostgresTestcontainer.class, TestClock.Config.class})
 @ActiveProfiles("test")
+@TestPropertySource(properties = "place.login.link-single-use=true")
 class LoginLinkTests {
 
 	@RegisterExtension
@@ -46,6 +50,14 @@ class LoginLinkTests {
 
 	@Autowired
 	private JdbcTemplate database;
+
+	@Autowired
+	private TestClock clock;
+
+	@AfterEach
+	void resetClock() {
+		clock.reset();
+	}
 
 	@Test
 	void openingTheLinkStartsASessionUnderANewValue() throws Exception {
@@ -72,6 +84,16 @@ class LoginLinkTests {
 
 		openLink(mockMvc, link)
 				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(cookie().doesNotExist("user_token"));
+	}
+
+	@Test
+	void anUnopenedLinkStopsWorkingAfterItsLifetime() throws Exception {
+		String link = requestLink("kaan.aydin@std.yildiz.edu.tr");
+		clock.advance(Duration.ofMinutes(61));
+
+		openLink(mockMvc, link)
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(cookie().doesNotExist("user_token"));
 	}
@@ -127,15 +149,8 @@ class LoginLinkTests {
 		return token;
 	}
 
-	/**
-	 * Placing a pixel needs a logged-in user: 403 without one. With a session the
-	 * request gets through (and is then refused for its made-up Turnstile token).
-	 */
 	private ResultActions placeAPixelWith(Cookie userToken) throws Exception {
-		return mockMvc.perform(post("/api/pixels/addProtectedPixel")
-				.cookie(userToken)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"color\":\"#ffffff\",\"number\":0,\"token\":\"not-a-turnstile-token\"}"));
+		return PlaceApi.placeAPixelWith(mockMvc, userToken);
 	}
 
 }

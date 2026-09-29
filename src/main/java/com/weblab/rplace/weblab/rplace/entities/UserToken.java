@@ -57,5 +57,12 @@ public class UserToken {
     @Column(name = "kind")
     private UserTokenKind kind;
 
+    // Sessions only: how the session was opened. Null on sessions from before this column
+    // existed (mail logins) and on login links. Its own column, not new kinds: ddl-auto
+    // does not widen the check constraint of an existing enum column.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source")
+    private SessionSource source;
+
 
 }

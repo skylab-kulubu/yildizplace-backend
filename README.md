@@ -50,6 +50,12 @@ Bütün yapılandırma ortam değişkenlerinden okunur (Spring'in ortam değişk
 | `DOMAIN` | evet | | Giriş çerezlerinin (`user_token`, `isAdmin`) `Domain` değeri |
 | `PLACE_LOGIN_MODE` | hayır | `mail` | Giriş yöntemi: `mail`, `eskylab` ya da `both` (aşağıya bakın). Başka bir değerde uygulama açılmaz |
 | `PLACE_LOGIN_LINK_TTL` | hayır | `1h` | Mailden gelen giriş bağlantısının geçerlilik süresi (`30m`, `1h` gibi) |
+| `PLACE_LOGIN_LINK_SINGLE_USE` | hayır | `false` | `true`: bağlantı yalnız bir kez giriş yapar. `false`: süresi dolana kadar yeniden giriş yapar (aşağıya bakın) |
+| `KEYCLOAK_CLIENT_SECRET` | e-skylab girişi için (sır) | | Keycloak istemcisi `place`'in sırrı. Dokploy'da yalnız OpenBao referansı: `${{vault.bao-etkinlik.<appName>/KEYCLOAK_CLIENT_SECRET:value}}`. Yoksa uygulama yine açılır, mail girişi çalışır, `/api/auth/eskylab/*` `503` döner |
+| `KEYCLOAK_ISSUER` | hayır | `https://e.yildizskylab.com/realms/e-skylab` | e-skylab realm'inin issuer'ı; uç noktalar buradaki `.well-known/openid-configuration`'dan okunur |
+| `KEYCLOAK_CLIENT_ID` | hayır | `place` | Keycloak istemcisi |
+| `KEYCLOAK_REDIRECT_URI` | hayır | `https://api.place.yildizskylab.com/api/auth/eskylab/callback` | Bu backend'in dönüş adresi; Keycloak'taki istemcide birebir aynısı kayıtlı olmalı |
+| `PLACE_FRONTEND_URL` | hayır | `https://place.yildizskylab.com` | e-skylab girişinin bittiği frontend |
 | `SERVER_PORT` | hayır | `8080` | HTTP portu |
 | `CANVAS_MAX_PIXEL_X` | hayır | `399` | Tuvalin en büyük x koordinatı (0'dan başlar) |
 | `CANVAS_MAX_PIXEL_Y` | hayır | `399` | Tuvalin en büyük y koordinatı |
@@ -58,11 +64,24 @@ Bütün yapılandırma ortam değişkenlerinden okunur (Spring'in ortam değişk
 
 ### Giriş
 
-Giriş yöntemi `PLACE_LOGIN_MODE` ile seçilir (ADR 0060): `mail` (varsayılan; okul mailine gelen bağlantı), `eskylab` ya da `both`. Değiştirmek için değişkeni değiştirip uygulamayı yeniden başlatmak yeter. e-skylab ile giriş bu backend'e henüz eklenmedi; eklendiğinde admin ve moderatörler için her modda açık olacak.
+Giriş yöntemi `PLACE_LOGIN_MODE` ile seçilir (ADR 0060): `mail` (varsayılan; okul mailine gelen bağlantı), `eskylab` ya da `both`. Değiştirmek için değişkeni değiştirip uygulamayı yeniden başlatmak yeter. e-skylab ile giriş her modda açıktır: admin ve moderatörler her modda onunla girer.
 
 - `GET /api/auth/mode` (herkese açık) modu söyler: `{"mode":"mail","adminLogin":"eskylab"}`. `adminLogin` her modda `eskylab`'dır: admin ve moderatörler e-skylab ile girer. Frontend giriş sayfasını buna göre gösterir.
 - `eskylab` modunda mail uçları (`POST /api/users/register`, `POST /api/users/login`) `403` ve `{"success":false,"message":"..."}` döner.
-- Mailden gelen bağlantı (`/play?token=...`) tek kullanımlıktır ve `PLACE_LOGIN_LINK_TTL` kadar geçerlidir. `POST /api/users/login?token=...` bağlantıyı kullanılmış sayar ve `user_token` çerezine yeni, rastgele bir oturum değeri yazar; bağlantının kendi değeri oturum açmaz. Kullanılmış, süresi dolmuş ya da bilinmeyen bir bağlantı `{"success":false,...}` döner. Bir adrese saatte en çok 5 bağlantı gider; oturumlar bu sayıya girmez.
+- Mailden gelen bağlantı (`/play?token=...`) `PLACE_LOGIN_LINK_TTL` kadar geçerlidir. `POST /api/users/login?token=...` her başarılı açılışta `user_token` çerezine yeni, rastgele bir oturum değeri yazar; bağlantının kendi değeri hiçbir zaman oturum olmaz. `PLACE_LOGIN_LINK_SINGLE_USE=false` (varsayılan) iken bağlantı süresi dolana kadar yeniden giriş yapar, çünkü Outlook'un bağlantı tarayıcısı bağlantıyı öğrenciden önce açabilir; frontend girişi açık bir tıklamaya bağladığında (bilet 07) `true` yapılır ve bağlantı yalnız bir kez giriş yapar. Süresi dolmuş ya da bilinmeyen bir bağlantı (tek kullanımlık kipte kullanılmış olan da) `{"success":false,...}` döner. Bir adrese saatte en çok 5 bağlantı gider; oturumlar bu sayıya girmez.
+- `GET /api/users/logout` yalnız Place oturumunu kapatır: oturum kaydı silinir, `user_token` ve `isAdmin` çerezleri silinir. Keycloak'a istek gitmez; e-skylab oturumu açık kalır.
+
+#### e-skylab ile giriş (BFF)
+
+Backend, Keycloak'ın (realm `e-skylab`) gizli istemcisi `place`'tir ve Authorization Code + PKCE (S256) akışını kendisi yürütür. Keycloak'ın token'ları saklanmaz ve tarayıcıya gitmez; tarayıcıda yalnız Place'in `user_token` çerezi durur (ADR 0058'in yönü).
+
+- `GET /api/auth/eskylab/login` tarayıcıyı Keycloak'a yönlendirir. İsteğe bağlı parametreler: `prompt=none` (sessiz giriş: Keycloak ekran göstermez) ve `returnTo` (girişten sonra dönülecek frontend yolu, ör. `/admin`; `/` ile başlamayan, başka bir siteye giden ya da bozuk bir değer `/` olur).
+  - `state`, `nonce` ve PKCE doğrulayıcısı sunucuda, `eskylab_login_attempts` tablosunda 10 dakika tutulur ve bir kez kullanılır. Giriş, başlatan tarayıcıya `__Host-place_eskylab` çereziyle (HttpOnly, Secure, SameSite=Lax, 10 dakika) bağlanır; başka bir tarayıcıda biten giriş reddedilir (login CSRF).
+- `GET /api/auth/eskylab/callback` (Keycloak'ın döndüğü adres): kodu istemci sırrı ve PKCE doğrulayıcısıyla takas eder, ID token'ı doğrular (Keycloak'ın anahtarlarıyla imza, issuer, `aud` içinde `place`, nonce, `exp`, `iat`). Hesap yalnız `school_email` claim'inden bulunur (küçük harfe çevrilir; `SCHOOL_MAIL_ENABLED` açıkken okul adresi olmalı); hesap yoksa `ROLE_USER` ile açılır; yasaklı kullanıcı giremez. Mail girişindeki oturumun aynısı açılır (`user_token`, aynı öznitelikler) ve tarayıcı frontend'e (`returnTo` ya da `/`) döner.
+  - Sessiz girişte e-skylab oturumu yoksa (`login_required` ve benzerleri) tarayıcı girişsiz olarak `…?sso=none` ile frontend'e döner; backend Keycloak'a tekrar yönlendirmez, döngü olmaz.
+  - Başka her hata `…?sso=error` ile frontend'e döner; ayrıntı loga yazılır (token, kod ya da sır loga yazılmaz).
+- e-skylab ayarları eksikse (en azından `KEYCLOAK_CLIENT_SECRET` yoksa) iki uç da `503` ve `{"success":false,"message":"..."}` döner; açılışta eksik değişkenler loga yazılır. Mail girişi bundan etkilenmez.
+- Oturum kaydının kaynağı `user_tokens.source` sütununda durur (`MAIL` ya da `ESKYLAB`; boşsa bu sütundan önceki bir mail oturumudur).
 
 ### Yerel çalıştırma (Docker Compose)
 
@@ -78,7 +97,7 @@ Postgres 17, sahte bir SMTP sunucusu (Mailpit) ve uygulama açılır. API `http:
 mvn test
 ```
 
-Docker çalışıyor olmalı: testler Testcontainers ile bir Postgres 17 açar ve SMTP yerine GreenMail kullanır. `LoginCodeMailTests` giriş mailinin doğru adrese gittiğini, `LoginModeTests` ve `BothLoginModeTests` modları, `LoginLinkTests` ve `ExpiredLoginLinkTests` bağlantının tek kullanımlık olduğunu ve eski oturumların çalışmaya devam ettiğini, `WhitelistedMailTests` beyaz liste ekleme ucunun kalktığını doğrular.
+Docker çalışıyor olmalı: testler Testcontainers ile bir Postgres 17 açar, SMTP yerine GreenMail kullanır ve Keycloak yerine `mock-oauth2-server`'ı (`ghcr.io/navikt/mock-oauth2-server`) bir konteynerde açar. `LoginCodeMailTests` giriş mailinin doğru adrese gittiğini, `LoginModeTests` ve `BothLoginModeTests` modları, `LoginLinkTests` (tek kullanımlık kip), `ReusableLoginLinkTests` (varsayılan kip) ve `ExpiredLoginLinkTests` bağlantının kurallarını ve eski oturumların çalışmaya devam ettiğini, `WhitelistedMailTests` beyaz liste ekleme ucunun kalktığını doğrular. `EskylabLoginTests` e-skylab girişini uçtan uca (yönlendirme, dönüş, çerez, hesap eşleme, reddedilen durumlar, sessiz giriş, çıkış, loglar), `EskylabLoginModeTests` girişin her modda açık olduğunu, `EskylabLoginNotConfiguredTests` ayarlar eksikken uçların `503` döndüğünü doğrular.
 
 ### İmaj ve yayın
 

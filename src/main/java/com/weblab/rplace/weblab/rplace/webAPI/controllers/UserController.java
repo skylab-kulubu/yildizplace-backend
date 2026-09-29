@@ -1,18 +1,17 @@
 package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
-import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.security.LoginMode;
+import com.weblab.rplace.weblab.rplace.core.security.PlaceSessions;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
+import com.weblab.rplace.weblab.rplace.entities.SessionSource;
 import com.weblab.rplace.weblab.rplace.entities.dtos.RegisterRequestDto;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,12 +22,9 @@ public class UserController {
 
     private final UserService userService;
 
-    private final UserTokenService userTokenService;
+    private final PlaceSessions placeSessions;
 
     private final LoginMode loginMode;
-
-    @Value("${domain}")
-    private String domain;
 
     @PostMapping("/register")
     public ResponseEntity<Result> registerUser(@RequestBody RegisterRequestDto registerRequestDto, HttpServletRequest request){
@@ -52,78 +48,25 @@ public class UserController {
             return mailLoginClosed();
         }
 
-        var tokenResult = userService.loginUser(token);
+        var userResult = userService.logInWithLink(token);
 
-        if (!tokenResult.isSuccess()){
-            return ResponseEntity.ok(new ErrorResult(tokenResult.getMessage()));
+        if (!userResult.isSuccess()){
+            return ResponseEntity.ok(new ErrorResult(userResult.getMessage()));
         }
 
-        String sessionToken = tokenResult.getData();
+        placeSessions.open(userResult.getData(), SessionSource.MAIL, response);
 
-
-        if(tokenResult.isSuccess()){
-            //response.setHeader("Set-Cookie", "user_token="+token+"; SameSite=strict; Secure; HttpOnly; Path=/; Domain=egehan.dev; Max-Age=31536000");
-
-            var cookie = new Cookie("user_token", sessionToken);
-            cookie.setPath("/");
-            cookie.setDomain(domain);
-            cookie.setMaxAge(31536000);
-            cookie.setHttpOnly(true);
-            cookie.setSecure(true);
-
-            response.addCookie(cookie);
-
-            var userRolesResult = userTokenService.getUserRolesByToken(sessionToken);
-
-            //System.out.println(userRolesResult.getData());
-
-            if(userRolesResult.getData().contains("ROLE_ADMIN") || userRolesResult.getData().contains("ROLE_MODERATOR")){
-                var adminCookie = new Cookie("isAdmin", "true");
-                adminCookie.setPath("/");
-                adminCookie.setDomain(domain);
-                adminCookie.setMaxAge(31536000);
-                adminCookie.setHttpOnly(true);
-                adminCookie.setSecure(true);
-
-                //System.out.println(adminCookie.getName() + adminCookie.getValue());
-
-                response.addCookie(adminCookie);
-            }
-            //
-
-            //response.setHeader("Set-Cookie", "user_token="+token+"; SameSite=strict; Secure; HttpOnly; Path=/; Domain=localhost; Max-Age=31536000");
-
-
-            return ResponseEntity.ok(new SuccessResult(Messages.loginSuccess));
-        }
-
-        return ResponseEntity.ok(new ErrorResult(Messages.loginFailed));
-
+        return ResponseEntity.ok(new SuccessResult(Messages.loginSuccess));
     }
 
     private ResponseEntity<Result> mailLoginClosed() {
         return ResponseEntity.status(403).body(new ErrorResult(Messages.mailLoginClosed));
     }
 
+    // Ends the Place session only; the e-skylab session in Keycloak stays (ADR 0060).
     @GetMapping("/logout")
-    public Result logoutUser(HttpServletResponse response){
-        var cookie = new Cookie("user_token", "");
-        cookie.setPath("/");
-        cookie.setDomain(domain);
-        cookie.setMaxAge(0);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-
-        response.addCookie(cookie);
-
-        var adminCookie = new Cookie("isAdmin", "");
-        adminCookie.setPath("/");
-        adminCookie.setDomain(domain);
-        adminCookie.setMaxAge(0);
-        adminCookie.setHttpOnly(true);
-        adminCookie.setSecure(true);
-
-        response.addCookie(adminCookie);
+    public Result logoutUser(HttpServletRequest request, HttpServletResponse response){
+        placeSessions.end(request, response);
 
         return new SuccessResult(Messages.logoutSuccess);
     }
