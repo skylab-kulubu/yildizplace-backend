@@ -49,6 +49,8 @@ public class SecurityConfig{
 
                                .requestMatchers("/api/pixelLogs/**").hasAnyRole("ADMIN", "MODERATOR")
 
+                               .requestMatchers("/api/auth/mode").permitAll()
+
                                .requestMatchers("/api/users/register").permitAll()
                                .requestMatchers("/api/users/login").permitAll()
                                .requestMatchers("/api/users/logout").permitAll()
@@ -61,8 +63,6 @@ public class SecurityConfig{
                                .requestMatchers("/api/bans/**").hasAnyRole("ADMIN", "MODERATOR")
 
                                .requestMatchers("/rplace/**").permitAll()
-
-                               .requestMatchers("/api/whitelistedMails/**").permitAll()
 
                                .anyRequest().authenticated()
 

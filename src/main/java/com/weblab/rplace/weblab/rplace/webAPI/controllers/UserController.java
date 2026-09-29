@@ -3,6 +3,7 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.LoginMode;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
@@ -24,11 +25,17 @@ public class UserController {
 
     private final UserTokenService userTokenService;
 
+    private final LoginMode loginMode;
+
     @Value("${domain}")
     private String domain;
 
     @PostMapping("/register")
-    public Result registerUser(@RequestBody RegisterRequestDto registerRequestDto, HttpServletRequest request){
+    public ResponseEntity<Result> registerUser(@RequestBody RegisterRequestDto registerRequestDto, HttpServletRequest request){
+        if (!loginMode.isMailLoginOpen()) {
+            return mailLoginClosed();
+        }
+
         String ipAddress = request.getRemoteAddr();
 
         String forwardedFor = request.getHeader("X-Forwarded-For");
@@ -36,26 +43,28 @@ public class UserController {
             ipAddress = forwardedFor.split(",")[0];
         }
 
-        return userService.registerUser(registerRequestDto.getSchoolMail(), ipAddress);
+        return ResponseEntity.ok(userService.registerUser(registerRequestDto.getSchoolMail(), ipAddress));
     }
 
     @PostMapping("/login")
     public ResponseEntity<Result> loginUser(@RequestParam String token, HttpServletResponse response){
+        if (!loginMode.isMailLoginOpen()) {
+            return mailLoginClosed();
+        }
+
         var tokenResult = userService.loginUser(token);
 
         if (!tokenResult.isSuccess()){
-            return ResponseEntity.ok(tokenResult);
+            return ResponseEntity.ok(new ErrorResult(tokenResult.getMessage()));
         }
 
-        if (tokenResult.getMessage().equals(Messages.invalidSchoolMail)){
-           return ResponseEntity.status(403).body(tokenResult);
-        }
+        String sessionToken = tokenResult.getData();
 
 
         if(tokenResult.isSuccess()){
             //response.setHeader("Set-Cookie", "user_token="+token+"; SameSite=strict; Secure; HttpOnly; Path=/; Domain=egehan.dev; Max-Age=31536000");
 
-            var cookie = new Cookie("user_token", token);
+            var cookie = new Cookie("user_token", sessionToken);
             cookie.setPath("/");
             cookie.setDomain(domain);
             cookie.setMaxAge(31536000);
@@ -64,7 +73,7 @@ public class UserController {
 
             response.addCookie(cookie);
 
-            var userRolesResult = userTokenService.getUserRolesByToken(token);
+            var userRolesResult = userTokenService.getUserRolesByToken(sessionToken);
 
             //System.out.println(userRolesResult.getData());
 
@@ -90,6 +99,10 @@ public class UserController {
 
         return ResponseEntity.ok(new ErrorResult(Messages.loginFailed));
 
+    }
+
+    private ResponseEntity<Result> mailLoginClosed() {
+        return ResponseEntity.status(403).body(new ErrorResult(Messages.mailLoginClosed));
     }
 
     @GetMapping("/logout")

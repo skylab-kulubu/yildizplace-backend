@@ -52,5 +52,10 @@ public class UserToken {
     @Column(name = "used_at")
     private Date usedAt;
 
+    // Null on rows from before links and sessions were told apart: those are sessions.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind")
+    private UserTokenKind kind;
+
 
 }

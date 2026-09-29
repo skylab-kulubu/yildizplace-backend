@@ -51,7 +51,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
         String username = null;
 
         if(token != null){
-            var result = userTokenService.getUserNameByToken(token);
+            var result = userTokenService.getUserNameBySessionToken(token);
             if (result.isSuccess()) {
                 username = result.getData();
             }

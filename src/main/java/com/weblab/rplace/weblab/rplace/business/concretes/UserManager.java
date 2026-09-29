@@ -11,6 +11,7 @@ import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
 import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import com.weblab.rplace.weblab.rplace.entities.UserTokenKind;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
@@ -117,6 +118,7 @@ public class UserManager implements UserService, UserDetailsService {
                 .isUsed(false)
                 .createdAt(new Date())
                 .userIp(ipAddress)
+                .kind(UserTokenKind.LINK)
                 .build();
 
         userTokenService.addToken(userToken);
@@ -125,24 +127,38 @@ public class UserManager implements UserService, UserDetailsService {
 
     }
 
+    // Returns the value of the new session, never the link's own value.
     @Override
-    public Result loginUser(String token) {
-        var tokenResult = userTokenService.validateToken(token);
+    public DataResult<String> loginUser(String linkToken) {
+        var linkResult = userTokenService.useLoginLink(linkToken);
 
-        if (!tokenResult.isSuccess()) {
-            return new ErrorResult(tokenResult.getMessage());
+        if (!linkResult.isSuccess()) {
+            return new ErrorDataResult<>(linkResult.getMessage());
         }
 
-        var userNameResult = userTokenService.getUserNameByToken(token);
-        if (!userNameResult.isSuccess()) {
-            return new ErrorResult(userNameResult.getMessage());
+        var userResult = getUserById(linkResult.getData().getUserId());
+        if (!userResult.isSuccess()) {
+            return new ErrorDataResult<>(userResult.getMessage());
         }
 
-        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userNameResult.getData())){
-            return new ErrorResult(Messages.invalidSchoolMail);
+        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userResult.getData().getSchoolMail())){
+            return new ErrorDataResult<>(Messages.invalidSchoolMail);
         }
 
-        return new SuccessResult(Messages.loginSuccess);
+        return new SuccessDataResult<>(startSession(userResult.getData()), Messages.loginSuccess);
+    }
+
+    private String startSession(User user) {
+        String sessionToken = generateToken();
+
+        userTokenService.addToken(UserToken.builder()
+                .token(sessionToken)
+                .userId(user.getId())
+                .createdAt(new Date())
+                .kind(UserTokenKind.SESSION)
+                .build());
+
+        return sessionToken;
     }
 
     private boolean CheckIfMailCorrect(String schoolMail) {
@@ -156,7 +172,7 @@ public class UserManager implements UserService, UserDetailsService {
     private Result CheckIfMaxTokenCountReachedBySchoolMail(String schoolMail) {
         var maxTokenCountByUserPerHour = 5;
 
-        var result = userTokenService.getTokensBetweenDatesBySchoolMail(new Date(System.currentTimeMillis() - 3600000),
+        var result = userTokenService.getLoginLinksBetweenDatesBySchoolMail(new Date(System.currentTimeMillis() - 3600000),
                 new Date(), schoolMail);
 
         if (result.getData() == null) {
@@ -173,7 +189,7 @@ public class UserManager implements UserService, UserDetailsService {
     private Result CheckIfMaxTokenCountReachedByIp(String ipAddress) {
         var maxTokenCountByIpPerHour = 100;
 
-        var result = userTokenService.getTokensBetweenDatesByIp(new Date(System.currentTimeMillis() - 3600000),
+        var result = userTokenService.getLoginLinksBetweenDatesByIp(new Date(System.currentTimeMillis() - 3600000),
                 new Date(), ipAddress);
 
         if (result.getData() == null) {
