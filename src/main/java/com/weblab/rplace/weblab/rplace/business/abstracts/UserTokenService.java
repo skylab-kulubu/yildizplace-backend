@@ -17,15 +17,15 @@ public interface UserTokenService {
 
     DataResult<List<UserToken>> getAll();
 
-    DataResult<String> getUserNameByToken(String token);
+    DataResult<String> getUserNameBySessionToken(String token);
 
     DataResult<List<String>> getUserRolesByToken(String token);
 
-    Result validateToken(String token);
+    DataResult<UserToken> useLoginLink(String token);
 
-    DataResult<List<UserToken>> getTokensBetweenDatesByIp(Date startDate, Date endDate , String ipAddress);
+    DataResult<List<UserToken>> getLoginLinksBetweenDatesByIp(Date startDate, Date endDate , String ipAddress);
 
-    DataResult<List<UserToken>> getTokensBetweenDatesBySchoolMail(Date startDate, Date endDate , String schoolMail);
+    DataResult<List<UserToken>> getLoginLinksBetweenDatesBySchoolMail(Date startDate, Date endDate , String schoolMail);
 
     DataResult<TokenExtendResponseDto> extendToken(TokenExtendRequestDto tokenVerifyRequestDto);
 

@@ -8,8 +8,10 @@ import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.UserToken;
+import com.weblab.rplace.weblab.rplace.entities.UserTokenKind;
 import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendRequestDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.TokenExtendResponseDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +31,9 @@ public class UserTokenManager implements UserTokenService {
     private final UserService userService;
 
     private final TurnstileService turnstileService;
+
+    @Value("${place.login.link-ttl}")
+    private Duration loginLinkTtl;
 
     public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService) {
         this.userService = userService;
@@ -59,8 +64,8 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<String> getUserNameByToken(String token) {
-        UserToken result = userTokenDao.findByToken(token);
+    public DataResult<String> getUserNameBySessionToken(String token) {
+        UserToken result = userTokenDao.findSessionByToken(token);
 
         if (result == null) {
             return new ErrorDataResult<String>(null, Messages.tokenNotFound);
@@ -101,30 +106,20 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public Result validateToken(String token) {
-        UserToken userToken = userTokenDao.findByToken(token);
+    public DataResult<UserToken> useLoginLink(String token) {
+        Date now = new Date();
+        Date createdAfter = new Date(now.getTime() - loginLinkTtl.toMillis());
 
-        if (userToken == null) {
-            return new ErrorResult(Messages.tokenNotFound);
+        if (userTokenDao.markLinkUsed(token, now, createdAfter) == 0) {
+            return new ErrorDataResult<>(Messages.loginLinkInvalid);
         }
 
-
-        /*
-        if (userToken.isUsed()) {
-            return new ErrorResult(Messages.tokenUsed);
-        }
-         */
-
-
-        userToken.setUsed(true);
-        userToken.setUsedAt(new Date());
-        userTokenDao.save(userToken);
-        return new SuccessResult(Messages.tokenFound);
+        return new SuccessDataResult<>(userTokenDao.findByToken(token), Messages.tokenFound);
     }
 
     @Override
-    public DataResult<List<UserToken>> getTokensBetweenDatesByIp(Date startDate, Date endDate ,String ipAddress) {
-        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIp(startDate, endDate, ipAddress);
+    public DataResult<List<UserToken>> getLoginLinksBetweenDatesByIp(Date startDate, Date endDate ,String ipAddress) {
+        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIpAndKind(startDate, endDate, ipAddress, UserTokenKind.LINK);
 
         if (result == null) {
             return new ErrorDataResult<List<UserToken>>(Messages.tokenNotFound);
@@ -134,7 +129,7 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<List<UserToken>> getTokensBetweenDatesBySchoolMail(Date startDate, Date endDate, String schoolMail) {
+    public DataResult<List<UserToken>> getLoginLinksBetweenDatesBySchoolMail(Date startDate, Date endDate, String schoolMail) {
         DataResult<User> userResult = userService.getUserBySchoolMail(schoolMail);
 
         if (!userResult.isSuccess()) {
@@ -142,7 +137,7 @@ public class UserTokenManager implements UserTokenService {
         }
 
 
-        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserId(startDate, endDate, userResult.getData().getId());
+        List<UserToken> result = userTokenDao.findAllByCreatedAtBetweenAndUserIdAndKind(startDate, endDate, userResult.getData().getId(), UserTokenKind.LINK);
 
         if (result == null) {
             return new ErrorDataResult<List<UserToken>>(Messages.tokenNotFound);

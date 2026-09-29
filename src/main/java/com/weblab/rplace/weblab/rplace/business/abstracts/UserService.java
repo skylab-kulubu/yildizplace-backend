@@ -12,7 +12,7 @@ public interface UserService extends UserDetailsService {
 
     Result registerUser(String schoolMail, String ipAddress);
 
-    Result loginUser(String token);
+    DataResult<String> loginUser(String linkToken);
 
     Result addUser(User user);
 

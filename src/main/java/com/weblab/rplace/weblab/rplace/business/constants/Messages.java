@@ -34,6 +34,8 @@ public class Messages {
     public static String userFound = "Kullanıcı bulundu!";
     public static String loginSuccess = "Giriş başarılı!";
     public static String loginFailed = "Giriş başarısız!";
+    public static String loginLinkInvalid = "Giriş bağlantısı geçersiz, daha önce kullanılmış ya da süresi dolmuş! Lütfen yeni bir bağlantı isteyiniz!";
+    public static String mailLoginClosed = "Mail ile giriş kapalı! Lütfen e-skylab ile giriş yapınız!";
     public static String userNotFound = "Kullanıcı bulunamadı!";
     public static String lastPlacedTimeMustBeCorrect = "Piksel eklemek için son eklenen zamanı bekleyin!";
     public static String maxTokenCountReachedByIp = "Bu IP adresi için 1 saat içerisinde alınabilecek maksimum token sayısına ulaşıldı! Lütfen 1 saat sonra tekrar deneyin!";
