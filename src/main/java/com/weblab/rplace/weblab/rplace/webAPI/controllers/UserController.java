@@ -25,10 +25,20 @@ public class UserController {
 
     private final LoginMode loginMode;
 
-    @PostMapping("/register")
-    public ResponseEntity<Result> registerUser(@RequestBody RegisterRequestDto registerRequestDto, HttpServletRequest request){
+    // The live frontend asks with GET ?schoolMail=; POST with a JSON body is the newer form.
+    @RequestMapping(value = "/register", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<Result> registerUser(@RequestBody(required = false) RegisterRequestDto registerRequestDto,
+                                               @RequestParam(required = false) String schoolMail,
+                                               HttpServletRequest request){
         if (!loginMode.isMailLoginOpen()) {
             return mailLoginClosed();
+        }
+
+        if (registerRequestDto != null && registerRequestDto.getSchoolMail() != null) {
+            schoolMail = registerRequestDto.getSchoolMail();
+        }
+        if (schoolMail == null || schoolMail.isBlank()) {
+            return ResponseEntity.ok(new ErrorResult(Messages.invalidSchoolMail));
         }
 
         String ipAddress = request.getRemoteAddr();
@@ -38,10 +48,11 @@ public class UserController {
             ipAddress = forwardedFor.split(",")[0];
         }
 
-        return ResponseEntity.ok(userService.registerUser(registerRequestDto.getSchoolMail(), ipAddress));
+        return ResponseEntity.ok(userService.registerUser(schoolMail, ipAddress));
     }
 
-    @PostMapping("/login")
+    // The live frontend opens the mailed link with GET.
+    @RequestMapping(value = "/login", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<Result> loginUser(@RequestParam String token, HttpServletResponse response){
         if (!loginMode.isMailLoginOpen()) {
             return mailLoginClosed();
