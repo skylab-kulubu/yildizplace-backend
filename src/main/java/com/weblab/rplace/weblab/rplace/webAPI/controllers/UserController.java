@@ -7,7 +7,6 @@ import com.weblab.rplace.weblab.rplace.core.security.PlaceSessions;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.SuccessResult;
-import com.weblab.rplace.weblab.rplace.entities.SessionSource;
 import com.weblab.rplace.weblab.rplace.entities.dtos.RegisterRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -54,7 +53,7 @@ public class UserController {
             return ResponseEntity.ok(new ErrorResult(userResult.getMessage()));
         }
 
-        placeSessions.open(userResult.getData(), SessionSource.MAIL, response);
+        placeSessions.openMailSession(userResult.getData(), response);
 
         return ResponseEntity.ok(new SuccessResult(Messages.loginSuccess));
     }
@@ -70,17 +69,5 @@ public class UserController {
 
         return new SuccessResult(Messages.logoutSuccess);
     }
-
-
-    @PostMapping("/addModerator")
-    public Result addModerator(@RequestParam String schoolMail){
-        return userService.addModerator(schoolMail);
-    }
-
-    @PostMapping("/removeModerator")
-    public Result removeModerator(@RequestParam String schoolMail){
-        return userService.removeModerator(schoolMail);
-    }
-
 
 }

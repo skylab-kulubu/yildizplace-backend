@@ -6,7 +6,6 @@ import com.weblab.rplace.weblab.rplace.core.security.PlaceSessions;
 import com.weblab.rplace.weblab.rplace.core.security.RandomTokens;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
-import com.weblab.rplace.weblab.rplace.entities.SessionSource;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -79,7 +78,7 @@ public class EskylabLoginController {
 
         var result = eskylabLoginService.finish(state, code, error, browser);
         if (result.user() != null) {
-            placeSessions.open(result.user(), SessionSource.ESKYLAB, response);
+            placeSessions.openEskylabSession(result.user(), result.role(), response);
         }
         return redirect(result.redirect());
     }

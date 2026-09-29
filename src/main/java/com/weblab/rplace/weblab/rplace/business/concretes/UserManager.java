@@ -241,50 +241,6 @@ public class UserManager implements UserService, UserDetailsService {
 
 
     @Override
-    public Result addModerator(String schoolMail) {
-        if(!CheckIfSchoolMailCorrect(schoolMail)){
-            return new ErrorResult(Messages.invalidSchoolMail);
-        }
-
-        var adminToAddResult = getUserBySchoolMail(schoolMail);
-
-        if(!adminToAddResult.isSuccess()){
-           return new ErrorResult(Messages.userDoesNotExist);
-        }
-
-        if(adminToAddResult.getData().getAuthorities().contains(Role.ROLE_MODERATOR)){
-            return new ErrorResult(Messages.userAlreadyModerator);
-        }
-
-        var user = adminToAddResult.getData();
-        user.addRole(Role.ROLE_MODERATOR);
-        userDao.save(user);
-        return new SuccessResult(Messages.moderatorAdded);
-    }
-
-    @Override
-    public Result removeModerator(String schoolMail) {
-        if(!CheckIfSchoolMailCorrect(schoolMail)){
-            return new ErrorResult(Messages.invalidSchoolMail);
-        }
-
-        var adminToRemoveResult = getUserBySchoolMail(schoolMail);
-
-        if(!adminToRemoveResult.isSuccess()){
-            return new ErrorResult(Messages.userDoesNotExist);
-        }
-
-        if(!adminToRemoveResult.getData().getAuthorities().contains(Role.ROLE_MODERATOR)){
-            return new ErrorResult(Messages.userNotModerator);
-        }
-
-        var user = adminToRemoveResult.getData();
-        user.getAuthorities().remove(Role.ROLE_MODERATOR);
-        userDao.save(user);
-        return new SuccessResult(Messages.moderatorRemoved);
-    }
-
-    @Override
     public DataResult<User> getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String usersSchoolMail = authentication.getName();

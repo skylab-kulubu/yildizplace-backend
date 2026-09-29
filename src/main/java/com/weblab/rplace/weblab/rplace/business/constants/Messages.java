@@ -53,10 +53,7 @@ public class Messages {
     public static String ipAlreadyBanned = "Bu IP adresi zaten yasaklı!";
     public static String userAlreadyBanned = "Bu kullanıcı zaten yasaklı!";
     public static String logoutSuccess = "Çıkış başarılı!";
-    public static String userAlreadyModerator = "Bu kullanıcı zaten moderatör!";
-    public static String moderatorAdded = "Moderatör başarıyla eklendi!";
-    public static String userNotModerator = "Bu kullanıcı moderatör değil!";
-    public static String moderatorRemoved = "Moderatör başarıyla kaldırıldı!";
+    public static String sessionEnded = "Oturumunuzun süresi doldu! Lütfen yeniden giriş yapınız!";
     public static String whitelistedMailAdded = "Whitelisted mail başarıyla eklendi!";
     public static String whitelistedMailAlreadyExists = "Bu mail zaten whitelisted!";
     public static String whitelistedMailExists = "Bu mail whitelisted!";

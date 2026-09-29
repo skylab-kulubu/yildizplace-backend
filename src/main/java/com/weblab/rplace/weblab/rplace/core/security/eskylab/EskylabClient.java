@@ -40,8 +40,11 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Place's side of e-skylab's Keycloak (ADR 0060): the backend is the confidential
@@ -157,6 +160,23 @@ public class EskylabClient {
         } catch (BadJOSEException | JOSEException e) {
             throw new EskylabLoginException("ID token rejected: " + e.getMessage());
         }
+    }
+
+    /**
+     * The roles the person has on this client, as Keycloak puts them in the token:
+     * resource_access.<client id>.roles. Roles of other clients and realm roles are not
+     * read. Anything shaped otherwise counts as no roles.
+     */
+    public Set<String> clientRoles(IDTokenClaimsSet claims) {
+        if (claims.getClaim("resource_access") instanceof Map<?, ?> clients
+                && clients.get(clientId) instanceof Map<?, ?> client
+                && client.get("roles") instanceof Collection<?> roles) {
+            return roles.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        return Set.of();
     }
 
     private Discovered discover() throws EskylabLoginException {
