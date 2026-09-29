@@ -53,6 +53,11 @@ final class MailLogin {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 
+		return tokenInLastMailTo(smtp, schoolMail);
+	}
+
+	/** The token in the last login link mailed to the address. */
+	static String tokenInLastMailTo(GreenMailExtension smtp, String schoolMail) throws Exception {
 		MimeMessage[] mails = smtp.getReceivedMessagesForDomain(schoolMail);
 		assertThat(mails).isNotEmpty();
 		Matcher link = LINK_TOKEN.matcher(textOf(mails[mails.length - 1]));
