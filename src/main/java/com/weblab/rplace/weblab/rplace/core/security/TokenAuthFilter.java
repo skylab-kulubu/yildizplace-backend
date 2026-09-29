@@ -4,7 +4,6 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,18 +34,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        Cookie[] cookies = request.getCookies();
-        String token = null;
-
-      if(cookies != null){
-          for (Cookie cookie : cookies) {
-              if (cookie.getName().equals("user_token")) {
-                  token = cookie.getValue();
-              }
-              //System.out.println(cookies.length);
-              //System.out.println(cookie.getName() + " " + cookie.getValue());
-          }
-      }
+        String token = PlaceSessions.sessionToken(request);
 
         String username = null;
 

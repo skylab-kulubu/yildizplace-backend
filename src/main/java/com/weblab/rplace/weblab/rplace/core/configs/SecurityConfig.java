@@ -50,6 +50,7 @@ public class SecurityConfig{
                                .requestMatchers("/api/pixelLogs/**").hasAnyRole("ADMIN", "MODERATOR")
 
                                .requestMatchers("/api/auth/mode").permitAll()
+                               .requestMatchers("/api/auth/eskylab/login", "/api/auth/eskylab/callback").permitAll()
 
                                .requestMatchers("/api/users/register").permitAll()
                                .requestMatchers("/api/users/login").permitAll()

@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -32,13 +33,20 @@ public class UserTokenManager implements UserTokenService {
 
     private final TurnstileService turnstileService;
 
+    private final Clock clock;
+
     @Value("${place.login.link-ttl}")
     private Duration loginLinkTtl;
 
-    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService) {
+    // PLACE_LOGIN_LINK_SINGLE_USE; false lets a link log in again until it expires.
+    @Value("${place.login.link-single-use}")
+    private boolean loginLinkSingleUse;
+
+    public UserTokenManager(@Lazy UserService userService, UserTokenDao userTokenDao, TurnstileService turnstileService, Clock clock) {
         this.userService = userService;
         this.userTokenDao = userTokenDao;
         this.turnstileService = turnstileService;
+        this.clock = clock;
     }
 
     @Override
@@ -84,37 +92,21 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<List<String>> getUserRolesByToken(String token) {
-
-        var userTokenResult = getUserToken(token);
-
-        if (!userTokenResult.isSuccess()){
-            return new ErrorDataResult<List<String>>(null, userTokenResult.getMessage());
-        }
-
-        var userResult = userService.getUserById(userTokenResult.getData().getUserId());
-
-        if (!userResult.isSuccess()){
-            return new ErrorDataResult<List<String>>(null, userResult.getMessage());
-        }
-
-        List<String> roles = userResult.getData().getAuthorities().stream().map(authority -> authority.getAuthority()).toList();
-
-        return new SuccessDataResult<List<String>>(roles, Messages.tokenFound);
-
-
-    }
-
-    @Override
     public DataResult<UserToken> useLoginLink(String token) {
-        Date now = new Date();
+        Date now = Date.from(clock.instant());
         Date createdAfter = new Date(now.getTime() - loginLinkTtl.toMillis());
 
-        if (userTokenDao.markLinkUsed(token, now, createdAfter) == 0) {
+        if (userTokenDao.useLink(token, now, createdAfter, !loginLinkSingleUse) == 0) {
             return new ErrorDataResult<>(Messages.loginLinkInvalid);
         }
 
         return new SuccessDataResult<>(userTokenDao.findByToken(token), Messages.tokenFound);
+    }
+
+    @Override
+    public Result endSession(String sessionToken) {
+        userTokenDao.deleteSession(sessionToken);
+        return new SuccessResult();
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.RandomTokens;
 import com.weblab.rplace.weblab.rplace.core.utilities.mail.EmailService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
@@ -21,8 +22,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -54,9 +53,9 @@ public class UserManager implements UserService, UserDetailsService {
     @Override
     public Result registerUser(String schoolMail, String ipAddress) {
 
-        schoolMail = schoolMail.trim().toLowerCase();
+        schoolMail = User.normalizeSchoolMail(schoolMail);
 
-        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(schoolMail)){
+        if(!isSchoolMailAllowed(schoolMail)){
             return new ErrorResult(Messages.invalidSchoolMail);
         }
 
@@ -82,17 +81,9 @@ public class UserManager implements UserService, UserDetailsService {
         }
 
 
-      User user = userDao.findBySchoolMail(schoolMail);
-        if(user == null){
-            user = new User();
-            user.setAuthorities(Set.of(Role.ROLE_USER));
-            user.setLastPlacedAt(null);
-            user.setSchoolMail(schoolMail);
+        User user = findOrCreateUser(schoolMail);
 
-            addUser(user);
-        }
-
-        String token = generateToken();
+        String token = RandomTokens.generate();
 
         String body= "<body style=\"margin:10px;padding:0 20px;font-family:Arial,sans-serif;background-color:#f8f8f8\">\n" +
                 "<div style=\"padding:0 20px;border:2px solid #000;box-shadow:8px 8px 0 rgba(0,0,0,.75);background-color:#fff\">\n" +
@@ -127,9 +118,8 @@ public class UserManager implements UserService, UserDetailsService {
 
     }
 
-    // Returns the value of the new session, never the link's own value.
     @Override
-    public DataResult<String> loginUser(String linkToken) {
+    public DataResult<User> logInWithLink(String linkToken) {
         var linkResult = userTokenService.useLoginLink(linkToken);
 
         if (!linkResult.isSuccess()) {
@@ -141,24 +131,32 @@ public class UserManager implements UserService, UserDetailsService {
             return new ErrorDataResult<>(userResult.getMessage());
         }
 
-        if(isSchoolMailEnabled && !CheckIfSchoolMailCorrect(userResult.getData().getSchoolMail())){
+        if(!isSchoolMailAllowed(userResult.getData().getSchoolMail())){
             return new ErrorDataResult<>(Messages.invalidSchoolMail);
         }
 
-        return new SuccessDataResult<>(startSession(userResult.getData()), Messages.loginSuccess);
+        return new SuccessDataResult<>(userResult.getData(), Messages.loginSuccess);
     }
 
-    private String startSession(User user) {
-        String sessionToken = generateToken();
+    @Override
+    public boolean isSchoolMailAllowed(String schoolMail) {
+        return !isSchoolMailEnabled || CheckIfSchoolMailCorrect(schoolMail);
+    }
 
-        userTokenService.addToken(UserToken.builder()
-                .token(sessionToken)
-                .userId(user.getId())
-                .createdAt(new Date())
-                .kind(UserTokenKind.SESSION)
-                .build());
+    // Serialized: school_mail has no unique constraint, and silent e-skylab logins in two tabs
+    // can arrive together for a new person. Place runs as a single instance.
+    @Override
+    public synchronized User findOrCreateUser(String schoolMail) {
+        User user = userDao.findBySchoolMail(schoolMail);
+        if(user == null){
+            user = new User();
+            user.setAuthorities(Set.of(Role.ROLE_USER));
+            user.setLastPlacedAt(null);
+            user.setSchoolMail(schoolMail);
 
-        return sessionToken;
+            addUser(user);
+        }
+        return user;
     }
 
     private boolean CheckIfMailCorrect(String schoolMail) {
@@ -291,14 +289,6 @@ public class UserManager implements UserService, UserDetailsService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String usersSchoolMail = authentication.getName();
         return getUserBySchoolMail(usersSchoolMail);
-    }
-
-
-    private String generateToken() {
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomBytes = new byte[16];
-        secureRandom.nextBytes(randomBytes);
-        return Base64.getUrlEncoder().encodeToString(randomBytes);
     }
 
     @Override

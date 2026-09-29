@@ -19,9 +19,10 @@ public interface UserTokenService {
 
     DataResult<String> getUserNameBySessionToken(String token);
 
-    DataResult<List<String>> getUserRolesByToken(String token);
-
     DataResult<UserToken> useLoginLink(String token);
+
+    // Ends the session with this value; login links and unknown values are left alone.
+    Result endSession(String sessionToken);
 
     DataResult<List<UserToken>> getLoginLinksBetweenDatesByIp(Date startDate, Date endDate , String ipAddress);
 

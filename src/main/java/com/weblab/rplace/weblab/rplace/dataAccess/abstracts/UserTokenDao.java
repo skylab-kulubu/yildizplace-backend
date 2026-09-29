@@ -26,11 +26,17 @@ public interface UserTokenDao extends JpaRepository<UserToken, Integer>{
 
     List<UserToken> findAllByCreatedAtBetweenAndUserIdAndKind(Date startDate, Date endDate, int userId, UserTokenKind kind);
 
-    // Marks an unused, unexpired login link used in one statement, so a link logs in at most
-    // once even when it is opened twice at the same moment. Returns 1 if this call used it.
+    // Marks an unexpired login link used in one statement and returns 1 if it logs in. A single-use
+    // link must also be unused, so it logs in at most once even when it is opened twice at the same
+    // moment; a reusable one (reusable = true) logs in again until it expires.
     @Transactional
     @Modifying
-    @Query("UPDATE UserToken t SET t.isUsed = true, t.usedAt = :usedAt WHERE t.token = :token AND t.kind = com.weblab.rplace.weblab.rplace.entities.UserTokenKind.LINK AND t.isUsed = false AND t.createdAt > :createdAfter")
-    int markLinkUsed(String token, Date usedAt, Date createdAfter);
+    @Query("UPDATE UserToken t SET t.isUsed = true, t.usedAt = :usedAt WHERE t.token = :token AND t.kind = com.weblab.rplace.weblab.rplace.entities.UserTokenKind.LINK AND t.createdAt > :createdAfter AND (:reusable = true OR t.isUsed = false)")
+    int useLink(String token, Date usedAt, Date createdAfter, boolean reusable);
+
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM UserToken t WHERE t.token = :token AND (t.kind IS NULL OR t.kind = com.weblab.rplace.weblab.rplace.entities.UserTokenKind.SESSION)")
+    int deleteSession(String token);
 
 }
