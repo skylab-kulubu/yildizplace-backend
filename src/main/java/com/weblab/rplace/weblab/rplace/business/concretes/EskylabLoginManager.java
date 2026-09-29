@@ -12,6 +12,7 @@ import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginExcepti
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.Frontend;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.EskylabLoginAttemptDao;
 import com.weblab.rplace.weblab.rplace.entities.EskylabLoginAttempt;
+import com.weblab.rplace.weblab.rplace.entities.Role;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import com.weblab.rplace.weblab.rplace.entities.dtos.EskylabLoginResult;
 import org.slf4j.Logger;
@@ -45,6 +46,10 @@ public class EskylabLoginManager implements EskylabLoginService {
     // What Keycloak answers a prompt=none login when the person has no e-skylab session to use (OIDC Core 3.1.2.6).
     private static final Set<String> NO_ESKYLAB_SESSION = Set.of(
             "login_required", "interaction_required", "consent_required", "account_selection_required");
+
+    // The Keycloak client roles of "place" that make a session elevated (ADR 0060).
+    private static final String ADMIN_ROLE = "place:admin";
+    private static final String MODERATOR_ROLE = "place:moderator";
 
     private static final Pattern ERROR_CODE = Pattern.compile("[a-z_]{1,64}");
 
@@ -125,7 +130,7 @@ public class EskylabLoginManager implements EskylabLoginService {
 
         if (error != null) {
             if (attempt.isSilent() && NO_ESKYLAB_SESSION.contains(error)) {
-                return new EskylabLoginResult(null, frontend.url(returnPath, "none"));
+                return new EskylabLoginResult(null, null, frontend.url(returnPath, "none"));
             }
             return refused(new EskylabLoginException("Keycloak answered " + loggable(error)), returnPath);
         }
@@ -135,7 +140,7 @@ public class EskylabLoginManager implements EskylabLoginService {
                 throw new EskylabLoginException("callback without code");
             }
             IDTokenClaimsSet claims = keycloak.redeem(code, new CodeVerifier(attempt.getCodeVerifier()), new Nonce(attempt.getNonce()));
-            return new EskylabLoginResult(admit(claims), frontend.url(returnPath, null));
+            return new EskylabLoginResult(admit(claims), placeRole(keycloak.clientRoles(claims)), frontend.url(returnPath, null));
         } catch (EskylabLoginException e) {
             return refused(e, returnPath);
         }
@@ -177,9 +182,20 @@ public class EskylabLoginManager implements EskylabLoginService {
         return userService.findOrCreateUser(schoolMail);
     }
 
+    // The session's role. place:admin wins over place:moderator: admins may do everything moderators may.
+    private static Role placeRole(Set<String> clientRoles) {
+        if (clientRoles.contains(ADMIN_ROLE)) {
+            return Role.ROLE_ADMIN;
+        }
+        if (clientRoles.contains(MODERATOR_ROLE)) {
+            return Role.ROLE_MODERATOR;
+        }
+        return Role.ROLE_USER;
+    }
+
     private EskylabLoginResult refused(EskylabLoginException reason, String returnPath) {
         log.warn("e-skylab login refused: {}", reason.getMessage());
-        return new EskylabLoginResult(null, frontend.url(returnPath, "error"));
+        return new EskylabLoginResult(null, null, frontend.url(returnPath, "error"));
     }
 
     // The error parameter comes from the browser: log it only when it looks like an OAuth error code.

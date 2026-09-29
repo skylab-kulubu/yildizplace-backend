@@ -71,10 +71,6 @@ public class User implements UserDetails {
         return true;
     }
 
-    public void addRole(Role role){
-        authorities.add(role);
-    }
-
     // The account key: the school address trimmed and in lowercase, however it arrived.
     public static String normalizeSchoolMail(String schoolMail) {
         return schoolMail.trim().toLowerCase(Locale.ROOT);

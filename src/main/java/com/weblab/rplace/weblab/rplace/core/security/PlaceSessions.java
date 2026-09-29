@@ -12,12 +12,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 
 /**
  * Place's own session, the same whichever way a person logged in: a user_tokens row
  * (kind SESSION, with its source) behind the user_token cookie. The mail login and
  * the e-skylab login both open it here, and logout ends it here.
+ *
+ * <p>A session is ROLE_USER and lasts as long as its cookie, a year. An elevated
+ * session, one opened with e-skylab by a person with a Place client role (ADR 0060),
+ * also carries ROLE_ADMIN or ROLE_MODERATOR and ends PLACE_ELEVATED_SESSION_TTL after
+ * the login; its cookies (user_token and isAdmin) last just as long.
  */
 @Component
 public class PlaceSessions {
@@ -30,30 +38,49 @@ public class PlaceSessions {
 
     private final UserTokenService userTokenService;
 
+    private final Clock clock;
+
     private final String domain;
 
-    public PlaceSessions(UserTokenService userTokenService, @Value("${domain}") String domain) {
+    private final Duration elevatedSessionTtl;
+
+    public PlaceSessions(UserTokenService userTokenService, Clock clock, @Value("${domain}") String domain,
+                         @Value("${place.elevated-session-ttl}") Duration elevatedSessionTtl) {
         this.userTokenService = userTokenService;
+        this.clock = clock;
         this.domain = domain;
+        this.elevatedSessionTtl = elevatedSessionTtl;
     }
 
-    /** Opens a session for the user under a new random value and sets the login cookies. */
-    public void open(User user, SessionSource source, HttpServletResponse response) {
+    /** Opens a mail session: always ROLE_USER, whatever the authorities table says. */
+    public void openMailSession(User user, HttpServletResponse response) {
+        open(user, SessionSource.MAIL, Role.ROLE_USER, response);
+    }
+
+    /** Opens an e-skylab session with the role from the person's Place client roles. */
+    public void openEskylabSession(User user, Role role, HttpServletResponse response) {
+        open(user, SessionSource.ESKYLAB, role, response);
+    }
+
+    // A new random value in the user_token cookie. Only an elevated session has an end and the isAdmin
+    // cookie; any other login deletes an isAdmin cookie an earlier session may have left.
+    private void open(User user, SessionSource source, Role role, HttpServletResponse response) {
+        boolean elevated = role != Role.ROLE_USER;
+        Instant now = clock.instant();
         String sessionToken = RandomTokens.generate();
         userTokenService.addToken(UserToken.builder()
                 .token(sessionToken)
                 .userId(user.getId())
-                .createdAt(new Date())
+                .createdAt(Date.from(now))
                 .kind(UserTokenKind.SESSION)
                 .source(source)
+                .role(elevated ? role : null)
+                .expiresAt(elevated ? now.plus(elevatedSessionTtl) : null)
                 .build());
 
-        response.addCookie(cookie(SESSION_COOKIE, sessionToken, COOKIE_MAX_AGE_SECONDS));
-
-        // Follows the roles in Place's database, as before; ticket 04 moves this to Keycloak's roles.
-        if (user.getAuthorities().contains(Role.ROLE_ADMIN) || user.getAuthorities().contains(Role.ROLE_MODERATOR)) {
-            response.addCookie(cookie(ADMIN_COOKIE, "true", COOKIE_MAX_AGE_SECONDS));
-        }
+        int maxAge = elevated ? (int) elevatedSessionTtl.toSeconds() : COOKIE_MAX_AGE_SECONDS;
+        response.addCookie(cookie(SESSION_COOKIE, sessionToken, maxAge));
+        response.addCookie(elevated ? cookie(ADMIN_COOKIE, "true", maxAge) : cookie(ADMIN_COOKIE, "", 0));
     }
 
     /** Ends the Place session of this request, if it has one, and deletes the login cookies. Keycloak is not told. */

@@ -72,23 +72,8 @@ public class UserTokenManager implements UserTokenService {
     }
 
     @Override
-    public DataResult<String> getUserNameBySessionToken(String token) {
-        UserToken result = userTokenDao.findSessionByToken(token);
-
-        if (result == null) {
-            return new ErrorDataResult<String>(null, Messages.tokenNotFound);
-        }
-
-        var usernameResult = userService.getUserById(result.getUserId());
-
-        if (!usernameResult.isSuccess()){
-            return new ErrorDataResult<String>(null,Messages.userNotFound);
-        }
-
-        String username = usernameResult.getData().getSchoolMail();
-
-        return new SuccessDataResult<String>(username, Messages.tokenFound);
-
+    public UserToken findSession(String sessionToken) {
+        return userTokenDao.findSessionByToken(sessionToken);
     }
 
     @Override

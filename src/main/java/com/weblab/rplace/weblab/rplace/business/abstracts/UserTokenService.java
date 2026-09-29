@@ -17,7 +17,8 @@ public interface UserTokenService {
 
     DataResult<List<UserToken>> getAll();
 
-    DataResult<String> getUserNameBySessionToken(String token);
+    // The session with this user_token value, or null; login links are not sessions.
+    UserToken findSession(String sessionToken);
 
     DataResult<UserToken> useLoginLink(String token);
 

@@ -118,7 +118,8 @@ class EskylabLoginTests {
 				.andReturn().getResponse();
 
 		assertThat(response.getContentAsString()).isEmpty();
-		assertThat(response.getCookies()).extracting(Cookie::getName).containsOnly("user_token");
+		// Only Place's own cookies: the session, and the isAdmin cookie deleted (this login has no Place role).
+		assertThat(response.getCookies()).extracting(Cookie::getName).containsOnly("user_token", "isAdmin");
 		for (String header : response.getHeaderNames()) {
 			assertThat(response.getHeaders(header)).noneMatch(value -> value.contains("eyJ"));
 		}

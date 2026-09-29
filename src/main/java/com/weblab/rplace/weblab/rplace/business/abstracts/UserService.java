@@ -27,10 +27,6 @@ public interface UserService extends UserDetailsService {
 
     DataResult<User> getUserBySchoolMail(String schoolMail);
 
-    Result addModerator(String schoolMail);
-
-    Result removeModerator(String schoolMail);
-
     DataResult<User> getAuthenticatedUser();
 
 }

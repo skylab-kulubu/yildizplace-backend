@@ -112,6 +112,11 @@ final class FakeEskylab {
 		return claims;
 	}
 
+	/** Keycloak's resource_access claim giving the person these client roles of "place". */
+	static Map<String, Object> placeClientRoles(String... roles) {
+		return Map.of(CLIENT_ID, Map.of("roles", List.of(roles)));
+	}
+
 	private static synchronized HttpServer start() {
 		if (proxy != null) {
 			return proxy;

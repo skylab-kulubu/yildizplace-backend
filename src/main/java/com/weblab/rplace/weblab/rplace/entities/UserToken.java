@@ -6,8 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.Set;
 
 @Data
 @Entity
@@ -64,5 +66,27 @@ public class UserToken {
     @Column(name = "source")
     private SessionSource source;
 
+    // Elevated sessions only: ROLE_ADMIN or ROLE_MODERATOR, from the e-skylab login's Keycloak
+    // client roles (ADR 0060). Null on every other session, and a session without a role is
+    // ROLE_USER: mail sessions, sessions from before this column existed, e-skylab sessions
+    // without a Place role. The authorities table does not count.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Role role;
+
+    // Elevated sessions only: when the session ends (PLACE_ELEVATED_SESSION_TTL after the login).
+    // Null: the session does not end on the server; its cookie lasts a year.
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
+    /** What this session may do: ROLE_USER, and its role if it is an elevated session. */
+    public Set<Role> grantedRoles() {
+        return role == null ? Set.of(Role.ROLE_USER) : Set.of(Role.ROLE_USER, role);
+    }
+
+    /** Whether the session is over at this moment; only elevated sessions have an end. */
+    public boolean hasEndedBy(Instant now) {
+        return expiresAt != null && !now.isBefore(expiresAt);
+    }
 
 }
