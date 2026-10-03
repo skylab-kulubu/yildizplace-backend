@@ -2,10 +2,12 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.EskylabLoginService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.ClientIp;
 import com.weblab.rplace.weblab.rplace.core.security.PlaceSessions;
 import com.weblab.rplace.weblab.rplace.core.security.RandomTokens;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.ErrorResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -71,12 +73,13 @@ public class EskylabLoginController {
                                            @RequestParam(required = false) String code,
                                            @RequestParam(required = false) String error,
                                            @CookieValue(name = BROWSER_COOKIE, required = false) String browser,
+                                           HttpServletRequest request,
                                            HttpServletResponse response) {
         if (!eskylabLoginService.isConfigured()) {
             return notConfigured();
         }
 
-        var result = eskylabLoginService.finish(state, code, error, browser);
+        var result = eskylabLoginService.finish(state, code, error, browser, ClientIp.of(request));
         if (result.user() != null) {
             placeSessions.openEskylabSession(result.user(), result.role(), response);
         }

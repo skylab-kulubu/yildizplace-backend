@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -23,6 +24,9 @@ import java.time.Instant;
 @Builder
 @Table(name = "eskylab_login_attempts")
 public class EskylabLoginAttempt {
+
+    // How long a login has between the redirect to Keycloak and the way back.
+    public static final Duration LIFETIME = Duration.ofMinutes(10);
 
     // The OIDC state parameter.
     @Id

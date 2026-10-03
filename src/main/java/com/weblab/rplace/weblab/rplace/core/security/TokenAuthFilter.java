@@ -1,6 +1,7 @@
 package com.weblab.rplace.weblab.rplace.core.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weblab.rplace.weblab.rplace.business.abstracts.BanService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
@@ -28,6 +29,13 @@ import java.time.Clock;
  * the session alone (ADR 0060): ROLE_USER, plus ROLE_ADMIN or ROLE_MODERATOR on an
  * elevated e-skylab session. The user's rows in the authorities table grant nothing.
  * An elevated session past its end is deleted and the request is refused with 401.
+ *
+ * <p>Bans hold on every request (ticket 08): the session of a banned user is ended
+ * (row and cookies) and the request goes on without it; a session used from a
+ * banned address is left out of this request but kept. Endpoints that need a
+ * session then answer 403 with the reason (BannedRequestEntryPoint); public ones
+ * still answer. An address ban does not hold for an elevated session, so a
+ * moderator on a banned shared network can still lift the ban.
  */
 @Component
 public class TokenAuthFilter extends OncePerRequestFilter {
@@ -42,15 +50,18 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
     private final ObjectMapper objectMapper;
 
+    private final BanService banService;
+
     // The services stay lazy as before; a Clock cannot be proxied, so it is not.
     @Autowired
     public TokenAuthFilter(@Lazy UserTokenService userTokenService, @Lazy UserService userService, @Lazy PlaceSessions placeSessions,
-                           Clock clock, ObjectMapper objectMapper) {
+                           Clock clock, ObjectMapper objectMapper, @Lazy BanService banService) {
         this.userTokenService = userTokenService;
         this.userService = userService;
         this.placeSessions = placeSessions;
         this.clock = clock;
         this.objectMapper = objectMapper;
+        this.banService = banService;
     }
 
     @Override
@@ -70,7 +81,12 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
         if (session != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             var user = userService.getUserById(session.getUserId());
-            if (user.isSuccess()) {
+            if (user.isSuccess() && banService.isUserIdBanned(user.getData().getId())) {
+                placeSessions.end(request, response);
+                request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.userIsBanned);
+            } else if (user.isSuccess() && session.getRole() == null && banService.isIpAddressBanned(ClientIp.of(request))) {
+                request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.ipBanned);
+            } else if (user.isSuccess()) {
                 var authToken = new UsernamePasswordAuthenticationToken(user.getData(), token, session.grantedRoles());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);

@@ -5,6 +5,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.util.Map;
+
 /**
  * A real Postgres 17 (the production major version) for tests that boot the
  * application. Spring Boot wires spring.datasource.* to it.
@@ -15,7 +17,9 @@ public class PostgresTestcontainer {
 	@Bean
 	@ServiceConnection
 	PostgreSQLContainer<?> postgres() {
-		return new PostgreSQLContainer<>("postgres:17-alpine");
+		// Data on tmpfs: nothing to keep, and faster.
+		return new PostgreSQLContainer<>("postgres:17-alpine")
+				.withTmpFs(Map.of("/var/lib/postgresql/data", "rw"));
 	}
 
 }
