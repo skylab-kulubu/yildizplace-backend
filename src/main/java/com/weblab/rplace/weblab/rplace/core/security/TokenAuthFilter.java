@@ -52,16 +52,19 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
     private final BanService banService;
 
+    private final ClientIp clientIp;
+
     // The services stay lazy as before; a Clock cannot be proxied, so it is not.
     @Autowired
     public TokenAuthFilter(@Lazy UserTokenService userTokenService, @Lazy UserService userService, @Lazy PlaceSessions placeSessions,
-                           Clock clock, ObjectMapper objectMapper, @Lazy BanService banService) {
+                           Clock clock, ObjectMapper objectMapper, @Lazy BanService banService, ClientIp clientIp) {
         this.userTokenService = userTokenService;
         this.userService = userService;
         this.placeSessions = placeSessions;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.banService = banService;
+        this.clientIp = clientIp;
     }
 
     @Override
@@ -84,7 +87,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             if (user.isSuccess() && banService.isUserIdBanned(user.getData().getId())) {
                 placeSessions.end(request, response);
                 request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.userIsBanned);
-            } else if (user.isSuccess() && session.getRole() == null && banService.isIpAddressBanned(ClientIp.of(request))) {
+            } else if (user.isSuccess() && session.getRole() == null && banService.isIpAddressBanned(clientIp.of(request))) {
                 request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.ipBanned);
             } else if (user.isSuccess()) {
                 var authToken = new UsernamePasswordAuthenticationToken(user.getData(), token, session.grantedRoles());
