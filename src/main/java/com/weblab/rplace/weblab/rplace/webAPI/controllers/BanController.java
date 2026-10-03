@@ -5,6 +5,7 @@ import com.weblab.rplace.weblab.rplace.core.utilities.results.DataResult;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.Result;
 import com.weblab.rplace.weblab.rplace.entities.BannedIp;
 import com.weblab.rplace.weblab.rplace.entities.BannedUser;
+import com.weblab.rplace.weblab.rplace.entities.ModerationAuditEntry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +27,22 @@ public class BanController {
     @PostMapping("/banIp")
     public Result banIp(@RequestParam String ip, @RequestParam String reason) {
         return banService.banIp(ip, reason);
+    }
+
+    // Moderators and admins (SecurityConfig: /api/bans/**); written to the audit log.
+    @PostMapping("/unbanUser")
+    public Result unbanUser(@RequestParam String schoolMail, @RequestParam(required = false) String reason) {
+        return banService.unbanUser(schoolMail, reason);
+    }
+
+    @PostMapping("/unbanIp")
+    public Result unbanIp(@RequestParam String ip, @RequestParam(required = false) String reason) {
+        return banService.unbanIp(ip, reason);
+    }
+
+    @GetMapping("/getAuditLog")
+    public DataResult<List<ModerationAuditEntry>> getAuditLog() {
+        return banService.getAuditLog();
     }
 
     @GetMapping("/getBannedIps")

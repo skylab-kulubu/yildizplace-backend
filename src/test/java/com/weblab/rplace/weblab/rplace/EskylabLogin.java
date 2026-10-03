@@ -64,6 +64,13 @@ final class EskylabLogin {
 		return returnFromKeycloak(mockMvc, back, started.browser());
 	}
 
+	/** A whole login from a browser at this address, as the proxy in front of Place reports it (X-Forwarded-For). */
+	static ResultActions logInFrom(MockMvc mockMvc, String clientIp, Map<String, Object> idTokenClaims) throws Exception {
+		Started started = start(mockMvc);
+		URI back = FakeEskylab.logIn(started.authorizationRequest(), idTokenClaims);
+		return mockMvc.perform(get(back).cookie(started.browser()).header("X-Forwarded-For", clientIp));
+	}
+
 	static Map<String, String> queryOf(URI uri) {
 		return UriComponentsBuilder.fromUri(uri).build(true).getQueryParams().toSingleValueMap().entrySet().stream()
 				.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() == null ? "" : URLDecoder.decode(e.getValue(), UTF_8)));

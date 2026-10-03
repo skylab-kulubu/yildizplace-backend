@@ -8,8 +8,10 @@ import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.BannedIpDao;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.BannedUserDao;
 import com.weblab.rplace.weblab.rplace.entities.BannedIp;
 import com.weblab.rplace.weblab.rplace.entities.BannedUser;
+import com.weblab.rplace.weblab.rplace.entities.ModerationAuditEntry;
 import com.weblab.rplace.weblab.rplace.entities.User;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
@@ -23,10 +25,13 @@ public class BanManager implements BanService {
 
     private final UserService userService;
 
-    public BanManager(BannedIpDao bannedIpDao, BannedUserDao bannedUserDao, UserService userService) {
+    private final ModerationAudit audit;
+
+    public BanManager(BannedIpDao bannedIpDao, BannedUserDao bannedUserDao, UserService userService, ModerationAudit audit) {
         this.bannedIpDao = bannedIpDao;
         this.bannedUserDao = bannedUserDao;
         this.userService = userService;
+        this.audit = audit;
     }
 
     @Override
@@ -74,6 +79,7 @@ public class BanManager implements BanService {
                 .build();
 
         bannedIpDao.save(bannedIp);
+        audit.record(ModerationAuditEntry.BAN_IP, ip, reason);
 
         return new SuccessResult(Messages.ipBanSuccess);
     }
@@ -97,6 +103,12 @@ public class BanManager implements BanService {
          }
 
         var loggedInUser = loggedInUserResult.getData();
+        schoolMail = User.normalizeSchoolMail(schoolMail);
+
+        // The ban would end the very session that could lift it.
+        if (schoolMail.equals(loggedInUser.getSchoolMail())) {
+            return new ErrorResult(Messages.cannotBanYourself);
+        }
 
         if(CheckIfUserAlreadyBanned(schoolMail)){
             return new ErrorResult(Messages.userAlreadyBanned);
@@ -117,6 +129,7 @@ public class BanManager implements BanService {
                 .build();
 
         bannedUserDao.save(bannedUser);
+        audit.record(ModerationAuditEntry.BAN_USER, schoolMail, reason);
         return new SuccessResult(Messages.userBanSuccess);
     }
 
@@ -131,13 +144,50 @@ public class BanManager implements BanService {
     }
 
     @Override
-    public Result unbanIp(int ip) {
-        return null;
+    @Transactional
+    public Result unbanIp(String ip, String reason) {
+        BannedIp bannedIp = bannedIpDao.findByIp(ip);
+        if (bannedIp == null) {
+            return new ErrorResult(Messages.ipNotBanned);
+        }
+
+        bannedIpDao.delete(bannedIp);
+        audit.record(ModerationAuditEntry.UNBAN_IP, ip, reason);
+        return new SuccessResult(Messages.ipUnbanSuccess);
     }
 
     @Override
-    public Result unbanUser(int userId) {
-        return null;
+    @Transactional
+    public Result unbanUser(String schoolMail, String reason) {
+        schoolMail = User.normalizeSchoolMail(schoolMail);
+        DataResult<User> userResult = userService.getUserBySchoolMail(schoolMail);
+        if (!userResult.isSuccess()) {
+            return new ErrorResult(userResult.getMessage());
+        }
+
+        BannedUser bannedUser = bannedUserDao.findByBannedUser(userResult.getData());
+        if (bannedUser == null) {
+            return new ErrorResult(Messages.userNotBanned);
+        }
+
+        bannedUserDao.delete(bannedUser);
+        audit.record(ModerationAuditEntry.UNBAN_USER, schoolMail, reason);
+        return new SuccessResult(Messages.userUnbanSuccess);
+    }
+
+    @Override
+    public boolean isIpAddressBanned(String ip) {
+        return ip != null && bannedIpDao.existsByIp(ip);
+    }
+
+    @Override
+    public boolean isUserIdBanned(int userId) {
+        return bannedUserDao.existsByBannedUser_Id(userId);
+    }
+
+    @Override
+    public DataResult<List<ModerationAuditEntry>> getAuditLog() {
+        return new SuccessDataResult<>(audit.newestFirst(), Messages.auditLogListed);
     }
 
     @Override

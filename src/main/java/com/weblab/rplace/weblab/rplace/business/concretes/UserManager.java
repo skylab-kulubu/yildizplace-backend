@@ -6,6 +6,7 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.WhitelistedMailService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
 import com.weblab.rplace.weblab.rplace.core.security.RandomTokens;
+import com.weblab.rplace.weblab.rplace.core.security.TokenHashes;
 import com.weblab.rplace.weblab.rplace.core.utilities.mail.EmailService;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserDao;
@@ -66,6 +67,11 @@ public class UserManager implements UserService, UserDetailsService {
 
          */
 
+        // Bans first: a banned person or address gets no mail (ticket 08).
+        if (banService.isIpAddressBanned(ipAddress)) {
+            return new ErrorResult(Messages.ipBanned);
+        }
+
         if(!CheckIfMaxTokenCountReachedByIp(ipAddress).isSuccess()){
             return new ErrorResult(Messages.maxTokenCountReachedByIp);
         }
@@ -74,10 +80,9 @@ public class UserManager implements UserService, UserDetailsService {
             return new ErrorResult(Messages.maxTokenCountReachedByUser);
         }
 
-       var userBanResult = banService.isUserBanned(schoolMail);
-        if(userBanResult.isSuccess()){
-           return new ErrorDataResult<>(userBanResult.getData(), userBanResult.getMessage());
-
+        // Only the message: the ban record names the moderator who made it.
+        if (banService.isUserBanned(schoolMail).isSuccess()) {
+            return new ErrorResult(Messages.userIsBanned);
         }
 
 
@@ -104,7 +109,7 @@ public class UserManager implements UserService, UserDetailsService {
          */
 
         UserToken userToken = new UserToken().builder()
-                .token(token)
+                .tokenHash(TokenHashes.sha256Hex(token))
                 .userId(user.getId())
                 .isUsed(false)
                 .createdAt(new Date())
@@ -119,7 +124,12 @@ public class UserManager implements UserService, UserDetailsService {
     }
 
     @Override
-    public DataResult<User> logInWithLink(String linkToken) {
+    public DataResult<User> logInWithLink(String linkToken, String ipAddress) {
+        // Before the link is used, so it still works from another address while it lasts.
+        if (banService.isIpAddressBanned(ipAddress)) {
+            return new ErrorDataResult<>(Messages.ipBanned);
+        }
+
         var linkResult = userTokenService.useLoginLink(linkToken);
 
         if (!linkResult.isSuccess()) {
@@ -133,6 +143,11 @@ public class UserManager implements UserService, UserDetailsService {
 
         if(!isSchoolMailAllowed(userResult.getData().getSchoolMail())){
             return new ErrorDataResult<>(Messages.invalidSchoolMail);
+        }
+
+        // A link mailed before the ban does not log in after it.
+        if (banService.isUserIdBanned(userResult.getData().getId())) {
+            return new ErrorDataResult<>(Messages.userIsBanned);
         }
 
         return new SuccessDataResult<>(userResult.getData(), Messages.loginSuccess);

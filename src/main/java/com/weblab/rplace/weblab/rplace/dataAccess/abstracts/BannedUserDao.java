@@ -11,4 +11,6 @@ public interface BannedUserDao extends JpaRepository<BannedUser, Integer> {
 
     BannedUser findByBannedUser(User bannedUser);
 
+    boolean existsByBannedUser_Id(int userId);
+
 }

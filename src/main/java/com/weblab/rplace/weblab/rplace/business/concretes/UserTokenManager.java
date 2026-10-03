@@ -3,6 +3,7 @@ package com.weblab.rplace.weblab.rplace.business.concretes;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserTokenService;
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.TokenHashes;
 import com.weblab.rplace.weblab.rplace.core.utilities.results.*;
 import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.UserTokenDao;
@@ -51,7 +52,7 @@ public class UserTokenManager implements UserTokenService {
 
     @Override
     public DataResult<UserToken> getUserToken(String token) {
-        UserToken userToken = userTokenDao.findByToken(token);
+        UserToken userToken = findByValue(token);
 
         if (userToken == null) {
             return new ErrorDataResult(Messages.tokenNotFound);
@@ -73,7 +74,12 @@ public class UserTokenManager implements UserTokenService {
 
     @Override
     public UserToken findSession(String sessionToken) {
-        return userTokenDao.findSessionByToken(sessionToken);
+        String tokenHash = TokenHashes.sha256Hex(sessionToken);
+        UserToken session = userTokenDao.findSessionByTokenHash(tokenHash);
+        if (session == null && hashIfStoredInTheClear(sessionToken, tokenHash)) {
+            session = userTokenDao.findSessionByTokenHash(tokenHash);
+        }
+        return session != null && TokenHashes.matches(sessionToken, session.getTokenHash()) ? session : null;
     }
 
     @Override
@@ -81,17 +87,45 @@ public class UserTokenManager implements UserTokenService {
         Date now = Date.from(clock.instant());
         Date createdAfter = new Date(now.getTime() - loginLinkTtl.toMillis());
 
-        if (userTokenDao.useLink(token, now, createdAfter, !loginLinkSingleUse) == 0) {
+        String tokenHash = TokenHashes.sha256Hex(token);
+
+        int used = userTokenDao.useLink(tokenHash, now, createdAfter, !loginLinkSingleUse);
+        if (used == 0 && hashIfStoredInTheClear(token, tokenHash)) {
+            used = userTokenDao.useLink(tokenHash, now, createdAfter, !loginLinkSingleUse);
+        }
+        if (used == 0) {
             return new ErrorDataResult<>(Messages.loginLinkInvalid);
         }
 
-        return new SuccessDataResult<>(userTokenDao.findByToken(token), Messages.tokenFound);
+        return new SuccessDataResult<>(userTokenDao.findByTokenHash(tokenHash), Messages.tokenFound);
     }
 
     @Override
     public Result endSession(String sessionToken) {
-        userTokenDao.deleteSession(sessionToken);
+        String tokenHash = TokenHashes.sha256Hex(sessionToken);
+        if (userTokenDao.deleteSession(tokenHash) == 0 && hashIfStoredInTheClear(sessionToken, tokenHash)) {
+            userTokenDao.deleteSession(tokenHash);
+        }
         return new SuccessResult();
+    }
+
+    // The row with this link or session value, found by its hash.
+    private UserToken findByValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        String tokenHash = TokenHashes.sha256Hex(value);
+        UserToken userToken = userTokenDao.findByTokenHash(tokenHash);
+        if (userToken == null && hashIfStoredInTheClear(value, tokenHash)) {
+            userToken = userTokenDao.findByTokenHash(tokenHash);
+        }
+        return userToken;
+    }
+
+    // A value an earlier version stored in the clear and the start has not hashed yet (written by the
+    // old instance while this one was starting): hashed now, so it keeps working.
+    private boolean hashIfStoredInTheClear(String value, String tokenHash) {
+        return userTokenDao.hashStoredInTheClear(value, tokenHash) > 0;
     }
 
     @Override
@@ -164,7 +198,7 @@ public class UserTokenManager implements UserTokenService {
 
         if (auth != null && auth.getCredentials() != null) {
             String token = auth.getCredentials().toString();
-            UserToken userToken = userTokenDao.findByToken(token);
+            UserToken userToken = findByValue(token);
             if (userToken != null) {
                 return new SuccessDataResult<UserToken>(userToken, Messages.tokenFound);
             }
