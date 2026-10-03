@@ -24,4 +24,13 @@ final class PlaceApi {
 				.content("{\"color\":\"#ffffff\",\"number\":0,\"token\":\"not-a-turnstile-token\"}"));
 	}
 
+	/** The same, from a browser at this address as the proxy in front of Place reports it (X-Forwarded-For). */
+	static ResultActions placeAPixelWith(MockMvc mockMvc, Cookie userToken, String clientIp) throws Exception {
+		return mockMvc.perform(post("/api/pixels/addProtectedPixel")
+				.cookie(userToken)
+				.header("X-Forwarded-For", clientIp)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"color\":\"#ffffff\",\"number\":0,\"token\":\"not-a-turnstile-token\"}"));
+	}
+
 }

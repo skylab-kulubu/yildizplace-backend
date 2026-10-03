@@ -189,7 +189,11 @@ class EskylabLoginTests {
 				INSERT INTO banned_users (banned_user_id, reason, banned_at)
 				SELECT id, 'test', now() FROM users WHERE school_mail = ?""", "yasakli.kisi@std.yildiz.edu.tr");
 
-		assertRefused(logIn(mockMvc, claims("school_email", "yasakli.kisi@std.yildiz.edu.tr")));
+		// Refused like any other failed login, with its own flag so the frontend can say why.
+		logIn(mockMvc, claims("school_email", "yasakli.kisi@std.yildiz.edu.tr"))
+				.andExpect(status().isFound())
+				.andExpect(redirectedUrl(FRONTEND + "/?sso=banned"))
+				.andExpect(cookie().doesNotExist("user_token"));
 	}
 
 	@Test

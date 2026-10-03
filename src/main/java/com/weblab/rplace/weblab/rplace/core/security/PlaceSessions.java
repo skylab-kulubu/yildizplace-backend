@@ -10,6 +10,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -26,6 +28,11 @@ import java.util.Date;
  * session, one opened with e-skylab by a person with a Place client role (ADR 0060),
  * also carries ROLE_ADMIN or ROLE_MODERATOR and ends PLACE_ELEVATED_SESSION_TTL after
  * the login; its cookies (user_token and isAdmin) last just as long.
+ *
+ * <p>The row keeps only the SHA-256 of the cookie's value (TokenHashes). Both cookies
+ * are HttpOnly, Secure and SameSite=Lax, also when they are deleted. Lax, not Strict:
+ * the frontend reads them on top-level navigations, also from a link on another site
+ * (a mail client), and Strict would leave them out there.
  */
 @Component
 public class PlaceSessions {
@@ -69,7 +76,7 @@ public class PlaceSessions {
         Instant now = clock.instant();
         String sessionToken = RandomTokens.generate();
         userTokenService.addToken(UserToken.builder()
-                .token(sessionToken)
+                .tokenHash(TokenHashes.sha256Hex(sessionToken))
                 .userId(user.getId())
                 .createdAt(Date.from(now))
                 .kind(UserTokenKind.SESSION)
@@ -79,8 +86,12 @@ public class PlaceSessions {
                 .build());
 
         int maxAge = elevated ? (int) elevatedSessionTtl.toSeconds() : COOKIE_MAX_AGE_SECONDS;
-        response.addCookie(cookie(SESSION_COOKIE, sessionToken, maxAge));
-        response.addCookie(elevated ? cookie(ADMIN_COOKIE, "true", maxAge) : cookie(ADMIN_COOKIE, "", 0));
+        addCookie(response, SESSION_COOKIE, sessionToken, maxAge);
+        if (elevated) {
+            addCookie(response, ADMIN_COOKIE, "true", maxAge);
+        } else {
+            addCookie(response, ADMIN_COOKIE, "", 0);
+        }
     }
 
     /** Ends the Place session of this request, if it has one, and deletes the login cookies. Keycloak is not told. */
@@ -89,8 +100,8 @@ public class PlaceSessions {
         if (sessionToken != null) {
             userTokenService.endSession(sessionToken);
         }
-        response.addCookie(cookie(SESSION_COOKIE, "", 0));
-        response.addCookie(cookie(ADMIN_COOKIE, "", 0));
+        addCookie(response, SESSION_COOKIE, "", 0);
+        addCookie(response, ADMIN_COOKIE, "", 0);
     }
 
     /** The value of the request's user_token cookie, or null. */
@@ -108,13 +119,14 @@ public class PlaceSessions {
         return token;
     }
 
-    private Cookie cookie(String name, String value, int maxAge) {
-        var cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setDomain(domain);
-        cookie.setMaxAge(maxAge);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        return cookie;
+    private void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
+        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(name, value)
+                .path("/")
+                .domain(domain)
+                .maxAge(maxAge)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .build().toString());
     }
 }

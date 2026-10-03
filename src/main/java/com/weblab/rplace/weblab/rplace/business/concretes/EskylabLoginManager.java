@@ -8,6 +8,7 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.BanService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.EskylabLoginService;
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabClient;
+import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginBannedException;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginException;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.Frontend;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.EskylabLoginAttemptDao;
@@ -38,7 +39,7 @@ public class EskylabLoginManager implements EskylabLoginService {
     private static final Logger log = LoggerFactory.getLogger(EskylabLoginManager.class);
 
     // A login has this long between the redirect to Keycloak and the way back.
-    private static final Duration ATTEMPT_LIFETIME = Duration.ofMinutes(10);
+    private static final Duration ATTEMPT_LIFETIME = EskylabLoginAttempt.LIFETIME;
 
     // The Place client's own claim (not "email", which may be a personal address; ADR 0060).
     private static final String SCHOOL_EMAIL_CLAIM = "school_email";
@@ -119,7 +120,7 @@ public class EskylabLoginManager implements EskylabLoginService {
     }
 
     @Override
-    public EskylabLoginResult finish(String state, String code, String error, String browser) {
+    public EskylabLoginResult finish(String state, String code, String error, String browser, String clientIp) {
         EskylabLoginAttempt attempt;
         try {
             attempt = take(state, browser);
@@ -140,7 +141,11 @@ public class EskylabLoginManager implements EskylabLoginService {
                 throw new EskylabLoginException("callback without code");
             }
             IDTokenClaimsSet claims = keycloak.redeem(code, new CodeVerifier(attempt.getCodeVerifier()), new Nonce(attempt.getNonce()));
-            return new EskylabLoginResult(admit(claims), placeRole(keycloak.clientRoles(claims)), frontend.url(returnPath, null));
+            Role role = placeRole(keycloak.clientRoles(claims));
+            return new EskylabLoginResult(admit(claims, role, clientIp), role, frontend.url(returnPath, null));
+        } catch (EskylabLoginBannedException e) {
+            log.warn("e-skylab login refused: {}", e.getMessage());
+            return new EskylabLoginResult(null, null, frontend.url(returnPath, "banned"));
         } catch (EskylabLoginException e) {
             return refused(e, returnPath);
         }
@@ -167,7 +172,9 @@ public class EskylabLoginManager implements EskylabLoginService {
     }
 
     // The Place account of the school address in the ID token, checked like the mail registration checks it.
-    private User admit(IDTokenClaimsSet claims) throws EskylabLoginException {
+    // A banned address does not stop a person with a Place role: on a shared network a moderator could
+    // otherwise not log in to lift the ban.
+    private User admit(IDTokenClaimsSet claims, Role role, String clientIp) throws EskylabLoginException {
         String schoolEmail = claims.getStringClaim(SCHOOL_EMAIL_CLAIM);
         if (schoolEmail == null || schoolEmail.isBlank()) {
             throw new EskylabLoginException("ID token has no " + SCHOOL_EMAIL_CLAIM);
@@ -177,7 +184,10 @@ public class EskylabLoginManager implements EskylabLoginService {
             throw new EskylabLoginException(SCHOOL_EMAIL_CLAIM + " is not a school address");
         }
         if (banService.isUserBanned(schoolMail).isSuccess()) {
-            throw new EskylabLoginException("the user is banned");
+            throw new EskylabLoginBannedException("the user is banned");
+        }
+        if (role == Role.ROLE_USER && banService.isIpAddressBanned(clientIp)) {
+            throw new EskylabLoginBannedException("the address is banned");
         }
         return userService.findOrCreateUser(schoolMail);
     }

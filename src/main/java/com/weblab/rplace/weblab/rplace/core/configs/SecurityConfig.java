@@ -1,6 +1,7 @@
 package com.weblab.rplace.weblab.rplace.core.configs;
 
 import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
+import com.weblab.rplace.weblab.rplace.core.security.BannedRequestEntryPoint;
 import com.weblab.rplace.weblab.rplace.core.security.TokenAuthFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +31,13 @@ public class SecurityConfig{
 
     private final UserService userService;
 
+    private final BannedRequestEntryPoint bannedRequestEntryPoint;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+       // No CSRF token: the login cookies are SameSite=Lax, so other sites cannot send them with a POST,
+       // and the CORS check (CorsConfig) refuses a request from any other origin, a sibling subdomain
+       // included, before the endpoint runs.
        return http
                .csrf(AbstractHttpConfigurer::disable)
                .authorizeHttpRequests(x ->
@@ -64,12 +70,15 @@ public class SecurityConfig{
 
                                .requestMatchers("/api/bans/**").hasAnyRole("ADMIN", "MODERATOR")
 
+                               .requestMatchers("/api/whitelistedMails", "/api/whitelistedMails/**").hasAnyRole("ADMIN", "MODERATOR")
+
                                .requestMatchers("/rplace/**").permitAll()
 
                                .anyRequest().authenticated()
 
                )
                .sessionManagement(x -> x.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+               .exceptionHandling(x -> x.authenticationEntryPoint(bannedRequestEntryPoint))
                .authenticationProvider(authenticationProvider())
                .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class)
                .build();
