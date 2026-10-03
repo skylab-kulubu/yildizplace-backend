@@ -5,12 +5,21 @@ import com.weblab.rplace.weblab.rplace.entities.WhitelistedMail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
+// No delete: entries are revoked (ADR 0042).
 @Repository
 public interface WhitelistedMailDao extends JpaRepository<WhitelistedMail, Integer>{
 
-    boolean existsByMail(String mail);
+    boolean existsByMailIgnoreCaseAndRevokedAtIsNull(String mail);
 
-    void deleteByMail(String mail);
+    boolean existsByMailIgnoreCaseAndRevokedAtIsNullAndIdNot(String mail, int id);
 
-    WhitelistedMail findByMail(String mail);
+    boolean existsByMailIgnoreCase(String mail);
+
+    List<WhitelistedMail> findAllByRevokedAtIsNullOrderByIdAsc();
+
+    List<WhitelistedMail> findAllByRevokedAtIsNotNullOrderByIdAsc();
+
+    List<WhitelistedMail> findAllByOrderByIdAsc();
 }

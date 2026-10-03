@@ -46,7 +46,8 @@ class WhitelistedMailTests {
 
 		String link = requestLink(mockMvc, smtp, "deniz.arslan@std.yildiz.edu.tr");
 		Cookie session = openLink(mockMvc, link).andReturn().getResponse().getCookie("user_token");
-		mockMvc.perform(addWhitelistedMail().cookie(session)).andExpect(status().isNotFound());
+		// The whitelist is managed by moderators only (WhitelistLifecycleTests); for them there is no add either.
+		mockMvc.perform(addWhitelistedMail().cookie(session)).andExpect(status().isForbidden());
 	}
 
 	private MockHttpServletRequestBuilder addWhitelistedMail() {

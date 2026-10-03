@@ -12,8 +12,9 @@ public interface UserService extends UserDetailsService {
 
     Result registerUser(String schoolMail, String ipAddress);
 
-    // The user a mailed login link logs in; the caller opens the session (PlaceSessions).
-    DataResult<User> logInWithLink(String linkToken);
+    // The user a mailed login link logs in, unless the user or the address is banned; the caller
+    // opens the session (PlaceSessions).
+    DataResult<User> logInWithLink(String linkToken, String ipAddress);
 
     // Whether this (lowercase) address may log in: a school address while SCHOOL_MAIL_ENABLED is on.
     boolean isSchoolMailAllowed(String schoolMail);

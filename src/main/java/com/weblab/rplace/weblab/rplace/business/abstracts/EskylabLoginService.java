@@ -24,7 +24,8 @@ public interface EskylabLoginService {
      * Finishes the login Keycloak sent the browser back from. Logged in: the user,
      * and the return path on the frontend. With prompt=none and no e-skylab session:
      * no user, and the frontend with ?sso=none. Anything else: no user, and the
-     * frontend with ?sso=error; the reason goes to the log.
+     * frontend with ?sso=error; the reason goes to the log. A banned user, or a user
+     * without a Place role at a banned address: no user, and the frontend with ?sso=banned.
      */
-    EskylabLoginResult finish(String state, String code, String error, String browser);
+    EskylabLoginResult finish(String state, String code, String error, String browser, String clientIp);
 }

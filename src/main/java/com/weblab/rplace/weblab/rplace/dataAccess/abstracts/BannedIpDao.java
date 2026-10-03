@@ -9,5 +9,7 @@ public interface BannedIpDao extends JpaRepository<BannedIp, Integer>{
 
     BannedIp findByIp(String ip);
 
+    boolean existsByIp(String ip);
+
 
 }
