@@ -20,8 +20,10 @@ import static com.weblab.rplace.weblab.rplace.FakeEskylab.placeClientRoles;
 import static com.weblab.rplace.weblab.rplace.MailLogin.openLink;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -111,6 +113,27 @@ class CookieAndCsrfTests {
 				.andExpect(jsonPath("$.success").value(true));
 
 		assertThat(bansOf(target)).isEqualTo(1);
+	}
+
+	@Test
+	void onlyPlacesHttpsFrontendIsAnAllowedOriginInProduction() throws Exception {
+		for (String origin : new String[] {"http://localhost:3000", "http://place.yildizskylab.com"}) {
+			mockMvc.perform(options("/api/users/register")
+							.header("Origin", origin)
+							.header("Access-Control-Request-Method", "POST"))
+					.andExpect(status().isForbidden())
+					.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+			mockMvc.perform(get("/api/auth/mode").header("Origin", origin))
+					.andExpect(status().isForbidden())
+					.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+		}
+
+		mockMvc.perform(options("/api/users/register")
+						.header("Origin", "https://place.yildizskylab.com")
+						.header("Access-Control-Request-Method", "POST"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Access-Control-Allow-Origin", "https://place.yildizskylab.com"))
+				.andExpect(header().string("Access-Control-Allow-Credentials", "true"));
 	}
 
 	private static ResultActions assertLoginCookie(ResultActions response, String name) throws Exception {

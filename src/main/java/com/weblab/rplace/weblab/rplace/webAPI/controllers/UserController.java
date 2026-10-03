@@ -38,6 +38,8 @@ public class UserController {
 
     private final LoginMode loginMode;
 
+    private final ClientIp clientIp;
+
     // POST with a JSON body {"schoolMail": ...}. The live frontend still asks with GET ?schoolMail=, which
     // keeps working for now: counted in the log (never the address) and answered with a Deprecation header.
     @RequestMapping(value = "/register", method = {RequestMethod.GET, RequestMethod.POST})
@@ -57,7 +59,7 @@ public class UserController {
             return ResponseEntity.ok(new ErrorResult(Messages.invalidSchoolMail));
         }
 
-        return ResponseEntity.ok(userService.registerUser(schoolMail, ClientIp.of(request)));
+        return ResponseEntity.ok(userService.registerUser(schoolMail, clientIp.of(request)));
     }
 
     // POST with the token as a form field. The live frontend opens the mailed link with GET ?token=, which
@@ -72,7 +74,7 @@ public class UserController {
             noteQueryStringUse(response, "login", "the login link", loginQueryStringUses);
         }
 
-        var userResult = userService.logInWithLink(token, ClientIp.of(request));
+        var userResult = userService.logInWithLink(token, clientIp.of(request));
 
         if (!userResult.isSuccess()){
             return ResponseEntity.ok(new ErrorResult(userResult.getMessage()));

@@ -45,6 +45,8 @@ public class EskylabLoginController {
 
     private final PlaceSessions placeSessions;
 
+    private final ClientIp clientIp;
+
     @GetMapping("/login")
     public ResponseEntity<Result> login(@RequestParam(required = false) String prompt,
                                         @RequestParam(required = false) String returnTo,
@@ -79,7 +81,7 @@ public class EskylabLoginController {
             return notConfigured();
         }
 
-        var result = eskylabLoginService.finish(state, code, error, browser, ClientIp.of(request));
+        var result = eskylabLoginService.finish(state, code, error, browser, clientIp.of(request));
         if (result.user() != null) {
             placeSessions.openEskylabSession(result.user(), result.role(), response);
         }

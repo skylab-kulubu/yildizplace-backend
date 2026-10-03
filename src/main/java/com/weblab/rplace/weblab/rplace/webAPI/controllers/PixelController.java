@@ -3,6 +3,7 @@ package com.weblab.rplace.weblab.rplace.webAPI.controllers;
 import java.util.List;
 
 import com.weblab.rplace.weblab.rplace.business.constants.Messages;
+import com.weblab.rplace.weblab.rplace.core.security.ClientIp;
 import com.weblab.rplace.weblab.rplace.core.utilities.turnstile.TurnstileService;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
@@ -28,16 +29,12 @@ public class PixelController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final TurnstileService turnstileService;
+    private final ClientIp clientIp;
 
 
     @PostMapping("/addPixel")
     public ResponseEntity<Result> addPixel(@RequestBody Pixel pixel, HttpServletRequest request) {
-        String ipAddress = request.getRemoteAddr();
-
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isEmpty()) {
-            ipAddress = forwardedFor.split(",")[0];
-        }
+        String ipAddress = clientIp.of(request);
 
 
         var result = pixelService.addPixel(pixel, ipAddress);
@@ -58,12 +55,7 @@ public class PixelController {
 
     @PostMapping("/addProtectedPixel")
     public ResponseEntity<Result> addProtectedPixel(@RequestBody ProtectedPixelRequestDto protectedPixelRequestDto, HttpServletRequest request){
-        String ipAddress = request.getRemoteAddr();
-
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isEmpty()) {
-            ipAddress = forwardedFor.split(",")[0];
-        }
+        String ipAddress = clientIp.of(request);
 
         var result = pixelService.addProtectedPixel(protectedPixelRequestDto, ipAddress);
 
@@ -104,12 +96,7 @@ public class PixelController {
 
     @PostMapping("/fill")
     public Result fill(@RequestBody FillDto fillDto, HttpServletRequest request) {
-        String ipAddress = request.getRemoteAddr();
-
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isEmpty()) {
-            ipAddress = forwardedFor.split(",")[0];
-        }
+        String ipAddress = clientIp.of(request);
 
         var result = pixelService.fill(fillDto, ipAddress);
         if (result.isSuccess()){
@@ -122,12 +109,7 @@ public class PixelController {
 
     @PostMapping("/bringBackPixels")
     public Result bringBackPixels(@RequestBody FillDto fillDto, HttpServletRequest request) {
-        String ipAddress = request.getRemoteAddr();
-
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isEmpty()) {
-            ipAddress = forwardedFor.split(",")[0];
-        }
+        String ipAddress = clientIp.of(request);
 
         var result = pixelService.bringBackPreviousPixels(fillDto, ipAddress);
         if (result.isSuccess()){
