@@ -109,7 +109,7 @@ class BanTests {
 	void aBannedAddressCannotAskForALink() throws Exception {
 		banIp(moderator("yasak.moderator4@std.yildiz.edu.tr"), "203.0.113.10");
 
-		mockMvc.perform(post("/api/users/register").header("X-Forwarded-For", "203.0.113.10")
+		mockMvc.perform(post("/api/users/register").with(TraefikProxy.forwarding("203.0.113.10"))
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"schoolMail\":\"yasak.ipkayit@std.yildiz.edu.tr\"}"))
 				.andExpect(jsonPath("$.success").value(false))
@@ -121,7 +121,7 @@ class BanTests {
 		String link = MailLogin.requestLink(mockMvc, smtp, "yasak.ipbaglanti@std.yildiz.edu.tr");
 		banIp(moderator("yasak.moderator5@std.yildiz.edu.tr"), "203.0.113.11");
 
-		mockMvc.perform(post("/api/users/login").param("token", link).header("X-Forwarded-For", "203.0.113.11"))
+		mockMvc.perform(post("/api/users/login").param("token", link).with(TraefikProxy.forwarding("203.0.113.11")))
 				.andExpect(jsonPath("$.success").value(false))
 				.andExpect(jsonPath("$.message").value(IP_BANNED))
 				.andExpect(cookie().doesNotExist("user_token"));
@@ -156,11 +156,49 @@ class BanTests {
 				.andExpect(cookie().exists("user_token"))
 				.andReturn().getResponse().getCookie("user_token");
 
-		mockMvc.perform(post("/api/bans/unbanIp").cookie(moderator).header("X-Forwarded-For", "203.0.113.14")
+		mockMvc.perform(post("/api/bans/unbanIp").cookie(moderator).with(TraefikProxy.forwarding("203.0.113.14"))
 						.param("ip", "203.0.113.14").param("reason", "kampüs ağı"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true));
 		assertThat(database.queryForObject("SELECT count(*) FROM banned_ips WHERE ip = '203.0.113.14'", Integer.class)).isZero();
+	}
+
+	@Test
+	void aBannedAddressCannotHideBehindAForgedForwardedFor() throws Exception {
+		banIp(moderator("yasak.moderator11@std.yildiz.edu.tr"), "203.0.113.15");
+
+		// The client wrote the left entry itself; Traefik appended the address it saw.
+		mockMvc.perform(post("/api/users/register").with(TraefikProxy.forwarding("192.0.2.15, 203.0.113.15"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"schoolMail\":\"yasak.sahte@std.yildiz.edu.tr\"}"))
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(IP_BANNED));
+	}
+
+	@Test
+	void aForwardedForSentPastTheProxyIsIgnored() throws Exception {
+		banIp(moderator("yasak.moderator12@std.yildiz.edu.tr"), "198.51.100.40");
+
+		mockMvc.perform(post("/api/users/register").with(TraefikProxy.directFrom("198.51.100.40", "192.0.2.40"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"schoolMail\":\"yasak.dogrudan@std.yildiz.edu.tr\"}"))
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(IP_BANNED));
+	}
+
+	@Test
+	void aLinkRequestRecordsTheAddressTraefikSawNotOneTheClientWrote() throws Exception {
+		mockMvc.perform(post("/api/users/register").with(TraefikProxy.forwarding("192.0.2.41, 203.0.113.41"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"schoolMail\":\"adres.traefik@std.yildiz.edu.tr\"}"))
+				.andExpect(jsonPath("$.success").value(true));
+		mockMvc.perform(post("/api/users/register").with(TraefikProxy.directFrom("198.51.100.42", "192.0.2.42"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"schoolMail\":\"adres.dogrudan@std.yildiz.edu.tr\"}"))
+				.andExpect(jsonPath("$.success").value(true));
+
+		assertThat(linkAddressesOf("adres.traefik@std.yildiz.edu.tr")).containsExactly("203.0.113.41");
+		assertThat(linkAddressesOf("adres.dogrudan@std.yildiz.edu.tr")).containsExactly("198.51.100.42");
 	}
 
 	@Test
@@ -254,6 +292,11 @@ class BanTests {
 	private int bansOf(String schoolMail) {
 		return database.queryForObject(
 				"SELECT count(*) FROM banned_users b JOIN users u ON u.id = b.banned_user_id WHERE u.school_mail = ?", Integer.class, schoolMail);
+	}
+
+	private java.util.List<String> linkAddressesOf(String schoolMail) {
+		return database.queryForList(
+				"SELECT t.user_ip FROM user_tokens t JOIN users u ON u.id = t.user_id WHERE u.school_mail = ? AND t.kind = 'LINK'", String.class, schoolMail);
 	}
 
 	private int sessionsOf(String schoolMail) {
