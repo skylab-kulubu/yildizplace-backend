@@ -11,7 +11,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * the https frontend alone (place.cors.allowed-origins in application.properties); the
  * frontend's dev server (http://localhost:3000) is added only by the dev profile
  * (application-dev.properties). A request from any other origin gets 403 before the
- * endpoint runs, which is what stops a sibling subdomain (SecurityConfig).
+ * endpoint runs, which is what stops a sibling subdomain (SecurityConfig). The canvas socket
+ * (/rplace) allows the same origins (WebSocketConfig).
  */
 @Configuration
 public class CorsConfig {
