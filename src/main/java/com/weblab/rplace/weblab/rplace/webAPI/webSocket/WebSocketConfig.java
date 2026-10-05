@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -18,10 +19,14 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+import java.util.Map;
+
 @Configuration
 @EnableWebSocket
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private static final String CLIENT_SEND_REFUSED = WebSocketConfig.class.getName() + ".clientSendRefused";
 
     private final String[] allowedOrigins;
 
@@ -57,16 +62,25 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      * (or a MESSAGE frame a client sends) to every subscriber of /topic/**, so anyone who can open
      * the socket could paint on every live canvas. CONNECT, SUBSCRIBE, UNSUBSCRIBE, DISCONNECT and
      * heartbeats pass; a refused frame gets an ERROR and the connection closes.
+     *
+     * <p>Spring logs every refused frame, and it still reads the rest of a WebSocket message after
+     * the connection closed: a client could pack thousands of frames into one message and get as
+     * many log lines. Only a session's first refused frame is reported; the rest are dropped.
      */
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                if (SimpMessageType.MESSAGE.equals(SimpMessageHeaderAccessor.getMessageType(message.getHeaders()))) {
-                    throw new MessageDeliveryException(message, "Clients cannot send messages on this socket");
+                MessageHeaders headers = message.getHeaders();
+                if (!SimpMessageType.MESSAGE.equals(SimpMessageHeaderAccessor.getMessageType(headers))) {
+                    return message;
                 }
-                return message;
+                Map<String, Object> session = SimpMessageHeaderAccessor.getSessionAttributes(headers);
+                if (session != null && session.putIfAbsent(CLIENT_SEND_REFUSED, Boolean.TRUE) != null) {
+                    return null;
+                }
+                throw new MessageDeliveryException(message, "Clients cannot send messages on this socket");
             }
         });
     }

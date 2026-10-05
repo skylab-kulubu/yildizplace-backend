@@ -3,10 +3,13 @@ package com.weblab.rplace.weblab.rplace;
 import com.weblab.rplace.weblab.rplace.entities.dtos.FillDto;
 import com.weblab.rplace.weblab.rplace.entities.dtos.PixelDto;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.messaging.Message;
@@ -86,6 +89,32 @@ class WebSocketClientSendTests {
 			assertThat(reply).as("the server's answer to the client's " + command).isNotNull();
 			assertThat(reply.command()).isEqualTo("ERROR");
 			assertThat(attacker.closed).succeedsWithin(10, SECONDS);
+		}
+	}
+
+	@Test
+	@ExtendWith(OutputCaptureExtension.class)
+	void aBatchOfFramesLeavesOneLogLine(CapturedOutput output) throws Exception {
+		// A hand-written client can pack many frames into one WebSocket message; the server reads
+		// them all even after it has refused the first one and closed the connection.
+		try (Stomp viewer = connect(); Stomp attacker = connect()) {
+			viewer.subscribe("sub-0", "/topic/pixels");
+			awaitSubscription(viewer, "/topic/pixels");
+
+			StringBuilder batch = new StringBuilder();
+			for (int i = 0; i < 100; i++) {
+				batch.append("SEND\ndestination:/topic/pixels\n\n").append(FAKE).append('\0');
+			}
+			attacker.socket.sendText(batch, true).join();
+			Frame reply = attacker.poll(3, SECONDS);
+			assertThat(attacker.closed).succeedsWithin(10, SECONDS);
+
+			messagingTemplate.convertAndSend("/topic/pixels", new PixelDto(5, 6, "654321"));
+			assertThat(viewer.bodiesUntil("654321")).containsExactly("{\"x\":5,\"y\":6,\"color\":\"654321\"}");
+			assertThat(reply).isNotNull();
+			assertThat(reply.command()).isEqualTo("ERROR");
+			assertThat(output.getAll().split("Clients cannot send messages on this socket", -1))
+					.as("log lines for one batch").hasSize(2);
 		}
 	}
 
