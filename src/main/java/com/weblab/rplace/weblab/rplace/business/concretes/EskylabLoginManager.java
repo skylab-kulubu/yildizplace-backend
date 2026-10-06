@@ -10,6 +10,7 @@ import com.weblab.rplace.weblab.rplace.business.abstracts.UserService;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabClient;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginBannedException;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginException;
+import com.weblab.rplace.weblab.rplace.core.security.eskylab.EskylabLoginNoSchoolEmailException;
 import com.weblab.rplace.weblab.rplace.core.security.eskylab.Frontend;
 import com.weblab.rplace.weblab.rplace.dataAccess.abstracts.EskylabLoginAttemptDao;
 import com.weblab.rplace.weblab.rplace.entities.EskylabLoginAttempt;
@@ -146,6 +147,9 @@ public class EskylabLoginManager implements EskylabLoginService {
         } catch (EskylabLoginBannedException e) {
             log.warn("e-skylab login refused: {}", e.getMessage());
             return new EskylabLoginResult(null, null, frontend.url(returnPath, "banned"));
+        } catch (EskylabLoginNoSchoolEmailException e) {
+            log.warn("e-skylab login refused: {}", e.getMessage());
+            return new EskylabLoginResult(null, null, frontend.url(returnPath, "no_school_email"));
         } catch (EskylabLoginException e) {
             return refused(e, returnPath);
         }
@@ -177,11 +181,11 @@ public class EskylabLoginManager implements EskylabLoginService {
     private User admit(IDTokenClaimsSet claims, Role role, String clientIp) throws EskylabLoginException {
         String schoolEmail = claims.getStringClaim(SCHOOL_EMAIL_CLAIM);
         if (schoolEmail == null || schoolEmail.isBlank()) {
-            throw new EskylabLoginException("ID token has no " + SCHOOL_EMAIL_CLAIM);
+            throw new EskylabLoginNoSchoolEmailException("ID token has no " + SCHOOL_EMAIL_CLAIM);
         }
         String schoolMail = User.normalizeSchoolMail(schoolEmail);
         if (!userService.isSchoolMailAllowed(schoolMail)) {
-            throw new EskylabLoginException(SCHOOL_EMAIL_CLAIM + " is not a school address");
+            throw new EskylabLoginNoSchoolEmailException(SCHOOL_EMAIL_CLAIM + " is not a school address");
         }
         if (banService.isUserBanned(schoolMail).isSuccess()) {
             throw new EskylabLoginBannedException("the user is banned");
