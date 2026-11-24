@@ -86,7 +86,7 @@ public class WhitelistedMailManager implements WhitelistedMailService {
             entry.setRevokedAt(clock.instant());
             entry.setRevokedById(actor.isSuccess() ? actor.getData().getId() : null);
             whitelistedMailDao.save(entry);
-            audit.record(ModerationAuditEntry.REVOKE_WHITELISTED_MAIL, entry.getMail(), null);
+            audit.record(ModerationAuditEntry.REVOKE_WHITELISTED_MAIL, auditTarget(entry), null);
         }
         return Change.DONE;
     }
@@ -101,13 +101,18 @@ public class WhitelistedMailManager implements WhitelistedMailService {
         if (entry.getRevokedAt() == null) {
             return Change.DONE;
         }
-        if (whitelistedMailDao.existsByMailIgnoreCaseAndRevokedAtIsNullAndIdNot(entry.getMail(), id)) {
+        if (entry.getMail() != null && whitelistedMailDao.existsByMailIgnoreCaseAndRevokedAtIsNullAndIdNot(entry.getMail(), id)) {
             return Change.CONFLICT;
         }
         entry.setRevokedAt(null);
         entry.setRevokedById(null);
         whitelistedMailDao.save(entry);
-        audit.record(ModerationAuditEntry.RESTORE_WHITELISTED_MAIL, entry.getMail(), null);
+        audit.record(ModerationAuditEntry.RESTORE_WHITELISTED_MAIL, auditTarget(entry), null);
         return Change.DONE;
+    }
+
+    // The retention run empties a whitelist entry's address a year on; the audit target is required.
+    private static String auditTarget(WhitelistedMail entry) {
+        return entry.getMail() == null ? "anonim" : entry.getMail();
     }
 }
