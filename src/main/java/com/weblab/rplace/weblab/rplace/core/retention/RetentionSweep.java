@@ -39,7 +39,14 @@ import java.util.function.Supplier;
  * under a 30-second statement timeout, and never more rows than its count found.</li>
  * <li>The brake: a rule that would change more than RETENTION_SWEEP_MAX_ROWS rows is
  * refused (apply changes nothing for it; the dry run says would_refuse_large).</li>
- * <li>Without EVENT_ENDED_AT nothing is counted or changed (no_event_end).</li>
+ * <li>Periods slide: they count from each row's own time or the person's last activity
+ * (RetentionRules); EVENT_ENDED_AT, when set, counts too if it is later.</li>
+ * <li>Before the rules, every run (dry run too) records each account's last login in
+ * users.last_seen_at, from its newest login token, so that the account rule still knows
+ * it once login_tokens has removed the token; an account with no trace of activity at
+ * all (from before this column) is counted from its first run, and so is a whitelist
+ * entry (whitelisted_mails.retention_seen_at). The columns are added here, not on the
+ * entities: the run is their only reader and writer.</li>
  * </ul>
  */
 @Component
@@ -154,6 +161,7 @@ public class RetentionSweep {
         String status = "ok";
         String errorCode = null;
         try {
+            recordLastLogins(now);
             MapSqlParameterSource params = parameters(settings.eventEndedAt(), now);
             for (RetentionRule rule : RetentionRules.ALL) {
                 RuleResult result = runRule(rule, settings, params, runId);
@@ -182,37 +190,32 @@ public class RetentionSweep {
     }
 
     private RuleResult runRule(RetentionRule rule, RetentionSettings settings, MapSqlParameterSource params, long runId) {
-        Instant cutoff = params.hasValue(rule.cutoff().parameter())
-                ? ((OffsetDateTime) params.getValue(rule.cutoff().parameter())).toInstant() : null;
+        Instant cutoff = ((OffsetDateTime) params.getValue(rule.cutoff().parameter())).toInstant();
         long matched = 0;
         long changed = 0;
         String status;
         String errorCode = null;
-        if (settings.eventEndedAt() == null) {
-            status = "no_event_end";
-        } else {
-            try {
-                matched = inTransaction(() -> jdbc.queryForObject(rule.countSql(), params, Long.class));
-                if (matched > settings.maxRows()) {
-                    status = settings.mode() == RetentionMode.APPLY ? "refused_large" : "would_refuse_large";
-                } else if (settings.mode() == RetentionMode.DRY_RUN) {
-                    status = "dry_run";
-                } else {
-                    while (changed < matched) {
-                        MapSqlParameterSource batch = new MapSqlParameterSource(params.getValues())
-                                .addValue("batch", Math.min(settings.batchSize(), matched - changed));
-                        int n = inTransaction(() -> jdbc.update(rule.batchSql(), batch));
-                        if (n == 0) {
-                            break;
-                        }
-                        changed += n;
+        try {
+            matched = inTransaction(() -> jdbc.queryForObject(rule.countSql(), params, Long.class));
+            if (matched > settings.maxRows()) {
+                status = settings.mode() == RetentionMode.APPLY ? "refused_large" : "would_refuse_large";
+            } else if (settings.mode() == RetentionMode.DRY_RUN) {
+                status = "dry_run";
+            } else {
+                while (changed < matched) {
+                    MapSqlParameterSource batch = new MapSqlParameterSource(params.getValues())
+                            .addValue("batch", Math.min(settings.batchSize(), matched - changed));
+                    int n = inTransaction(() -> jdbc.update(rule.batchSql(), batch));
+                    if (n == 0) {
+                        break;
                     }
-                    status = "ok";
+                    changed += n;
                 }
-            } catch (DataAccessException e) {
-                status = "failed";
-                errorCode = errorCode(e);
+                status = "ok";
             }
+        } catch (DataAccessException e) {
+            status = "failed";
+            errorCode = errorCode(e);
         }
         jdbc.update("""
                         INSERT INTO retention_run_rules (run_id, rule, version, table_name, action, cutoff, matched, changed, status, error_code)
@@ -235,13 +238,43 @@ public class RetentionSweep {
         return new RuleResult(rule.name(), status, matched, changed);
     }
 
-    private MapSqlParameterSource parameters(Instant eventEnd, Instant now) {
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        if (eventEnd == null) {
-            return params;
+    private void recordLastLogins(Instant now) {
+        addColumnIfMissing("users", "last_seen_at");
+        addColumnIfMissing("whitelisted_mails", "retention_seen_at");
+        inTransaction(() -> jdbc.update("""
+                        UPDATE users u SET last_seen_at = t.at
+                        FROM (SELECT user_id, max(created_at) AS at FROM user_tokens GROUP BY user_id) t
+                        WHERE t.user_id = u.id AND t.at IS NOT NULL AND (u.last_seen_at IS NULL OR u.last_seen_at < t.at)""",
+                new MapSqlParameterSource()));
+        // No trace of activity at all (accounts from before last_seen_at): counted from now.
+        inTransaction(() -> jdbc.update(
+                "UPDATE users SET last_seen_at = :now WHERE last_seen_at IS NULL AND last_placed_at IS NULL",
+                new MapSqlParameterSource("now", at(now))));
+        // A whitelist entry has no time of its own: counted from the first run that saw it.
+        inTransaction(() -> jdbc.update(
+                "UPDATE whitelisted_mails SET retention_seen_at = :now WHERE retention_seen_at IS NULL",
+                new MapSqlParameterSource("now", at(now))));
+    }
+
+    // Checked first, and under a short lock timeout: ALTER TABLE queues behind every open query on
+    // the table, and every request behind it would wait too.
+    private void addColumnIfMissing(String table, String column) {
+        Integer columns = jdbc.queryForObject("""
+                        SELECT count(*) FROM information_schema.columns
+                        WHERE table_schema = current_schema() AND table_name = :table AND column_name = :column""",
+                new MapSqlParameterSource().addValue("table", table).addValue("column", column), Integer.class);
+        if (columns != null && columns > 0) {
+            return;
         }
+        transactions.executeWithoutResult(status -> {
+            jdbc.getJdbcTemplate().execute("SET LOCAL lock_timeout = '5s'");
+            jdbc.getJdbcTemplate().execute("ALTER TABLE " + table + " ADD COLUMN IF NOT EXISTS " + column + " timestamptz");
+        });
+    }
+
+    private MapSqlParameterSource parameters(Instant eventEnd, Instant now) {
         OffsetDateTime utcNow = OffsetDateTime.ofInstant(now, ZoneOffset.UTC);
-        return params
+        return new MapSqlParameterSource()
                 .addValue("eventEnd", at(eventEnd))
                 .addValue("ipCutoff", utcNow.minus(IP_PERIOD))
                 .addValue("accountCutoff", utcNow.minusYears(1))

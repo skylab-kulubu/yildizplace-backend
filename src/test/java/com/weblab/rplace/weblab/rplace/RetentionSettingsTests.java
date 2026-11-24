@@ -9,7 +9,7 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** RETENTION_SWEEP_MODE, EVENT_ENDED_AT and the brake: a value the run cannot use stops the start. */
+/** RETENTION_SWEEP_MODE and the brake: a value the run cannot use stops the start; a bad EVENT_ENDED_AT is ignored. */
 class RetentionSettingsTests {
 
 	@Test
@@ -24,16 +24,15 @@ class RetentionSettingsTests {
 	}
 
 	@Test
-	void theEventEndIsADateInTurkeyOrATimeWithItsOffset() {
+	void theEventEndIsADateInTurkeyOrATimeWithItsOffsetOrIgnored() {
 		assertThat(new RetentionSettings("dry-run", "", 50000, 500).eventEndedAt()).isNull();
 		// The end of 18 May in Turkey (UTC+3).
 		assertThat(new RetentionSettings("dry-run", "2025-05-18", 50000, 500).eventEndedAt())
 				.isEqualTo(Instant.parse("2025-05-18T21:00:00Z"));
 		assertThat(new RetentionSettings("dry-run", "2025-05-18T22:00:00+03:00", 50000, 500).eventEndedAt())
 				.isEqualTo(Instant.parse("2025-05-18T19:00:00Z"));
-		assertThatThrownBy(() -> new RetentionSettings("dry-run", "18.05.2025", 50000, 500))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("EVENT_ENDED_AT");
+		// Optional: a value that is not a date is logged and ignored, the application still starts.
+		assertThat(new RetentionSettings("dry-run", "18.05.2025", 50000, 500).eventEndedAt()).isNull();
 	}
 
 	@Test

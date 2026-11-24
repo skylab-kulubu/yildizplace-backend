@@ -1,5 +1,7 @@
 package com.weblab.rplace.weblab.rplace.core.retention;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -10,11 +12,14 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 
 /**
- * The periodic destruction run's configuration (README, "Saklama ve imha"). A value the
- * run cannot use stops the application at startup, naming the variable.
+ * The periodic destruction run's configuration (README, "Saklama ve imha"). An unknown
+ * mode or a non-positive number stops the application at startup, naming the variable;
+ * an EVENT_ENDED_AT that is not a date is logged and ignored (it is optional).
  */
 @Component
 public class RetentionSettings {
+
+    private static final Logger log = LoggerFactory.getLogger(RetentionSettings.class);
 
     // A date in EVENT_ENDED_AT is the end of that day in Turkey.
     static final ZoneId EVENT_ZONE = ZoneId.of("Europe/Istanbul");
@@ -47,7 +52,10 @@ public class RetentionSettings {
         return mode;
     }
 
-    /** When the event ended (EVENT_ENDED_AT), or null when it is not set: then nothing is changed. */
+    /**
+     * When the event ended (EVENT_ENDED_AT), or null. Optional: periods count from each row's own
+     * time; when this is set, they count from it too if it is later.
+     */
     public Instant eventEndedAt() {
         return eventEndedAt;
     }
@@ -61,7 +69,8 @@ public class RetentionSettings {
         return batchSize;
     }
 
-    // "2025-05-18" (the end of that day in Turkey) or "2025-05-18T22:00:00+03:00".
+    // "2025-05-18" (the end of that day in Turkey) or "2025-05-18T22:00:00+03:00"; anything else is
+    // logged and counts as unset.
     static Instant parseEventEnd(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -73,8 +82,8 @@ public class RetentionSettings {
             }
             return OffsetDateTime.parse(trimmed).toInstant();
         } catch (DateTimeParseException e) {
-            throw new IllegalStateException(
-                    "EVENT_ENDED_AT must be a date (2025-05-18) or a time with its offset (2025-05-18T22:00:00+03:00)");
+            log.warn("retention_sweep EVENT_ENDED_AT ignored: not a date (2025-05-18) or a time with its offset (2025-05-18T22:00:00+03:00)");
+            return null;
         }
     }
 }

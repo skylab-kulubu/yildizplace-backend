@@ -32,9 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 /**
- * The periodic destruction run (ADR-0062): IP addresses, login and Turnstile tokens go
- * 90 days after the event, the account's school address a year after, a banned account
- * two years after. The canvas and what was placed stay; a pixel log keeps its (by then
+ * The periodic destruction run (ADR-0062), with sliding periods: IP addresses, login and
+ * Turnstile tokens go 90 days after their row was written, the account's school address a
+ * year after the person's last activity, a ban two years after it was made or lifted.
+ * A standing ban and an account active in the last 90 days are never touched. The canvas and what was placed stay; a pixel log keeps its (by then
  * anonymous) user. Dry run and apply select the same rows; a second run changes
  * nothing; one run at a time; the brake; the daily schedule.
  */
@@ -81,30 +82,34 @@ class RetentionSweepTests {
 	}
 
 	@Test
-	void aYearAfterTheEventIpsTokensAndAddressesGoTheGameStays() {
-		Instant eventEnd = now.minus(Duration.ofDays(400));
-		int played = user("oyuncu.bir@std.yildiz.edu.tr", eventEnd.minus(Duration.ofHours(1)));
-		int banned = user("yasakli.kisi@std.yildiz.edu.tr", eventEnd.minus(Duration.ofHours(2)));
-		int later = user("sonra.oynayan@std.yildiz.edu.tr", now.minus(Duration.ofDays(10)));
-		int loggedInLately = user("yeni.giris@std.yildiz.edu.tr", eventEnd.minus(Duration.ofHours(3)));
+	void periodsSlideFromEachRowsOwnTimeAndThePersonsLastActivity() {
+		int played = user("oyuncu.bir@std.yildiz.edu.tr", ago(400));
+		int recentLogin = user("yeni.giris@std.yildiz.edu.tr", ago(400));
+		int loginOnly = user("yalniz.giris@std.yildiz.edu.tr", null);
+		int banned = user("yasakli.kisi@std.yildiz.edu.tr", ago(800));
+		int recentPixel = user("sonra.oynayan@std.yildiz.edu.tr", ago(10));
 		int pixel = pixel(3, 4, "ff0000");
-		pixelLog(pixel, played, "203.0.113.7", eventEnd.minus(Duration.ofHours(1)));
-		pixelLog(pixel, later, "203.0.113.8", now.minus(Duration.ofDays(10)));
-		token(played, "203.0.113.7", eventEnd.minus(Duration.ofHours(2)));
-		token(loggedInLately, "203.0.113.9", now.minus(Duration.ofDays(30)));
-		bannedUser(banned, eventEnd.minus(Duration.ofDays(1)));
-		bannedIp("198.51.100.4", eventEnd.minus(Duration.ofDays(1)));
-		audit("BAN_IP", "198.51.100.4", "bot", eventEnd.minus(Duration.ofDays(1)));
-		audit("BAN_USER", "yasakli.kisi@std.yildiz.edu.tr", "küfür", eventEnd.minus(Duration.ofDays(1)));
-		audit("REVOKE_WHITELISTED_MAIL", "misafir@example.com", null, eventEnd);
-		whitelisted("misafir@example.com");
+		pixelLog(pixel, played, "203.0.113.7", ago(400));
+		pixelLog(pixel, recentPixel, "203.0.113.8", ago(10));
+		token(played, "203.0.113.7", ago(400));
+		token(recentLogin, "203.0.113.9", ago(30));
+		token(loginOnly, "203.0.113.10", ago(200));
+		bannedUser(banned, ago(500));
+		bannedIp("198.51.100.4", ago(100));
+		bannedIp("198.51.100.5", ago(10));
+		audit("BAN_IP", "198.51.100.4", "bot", ago(100));
+		audit("BAN_IP", "198.51.100.5", "bot", ago(10));
+		audit("BAN_USER", "yasakli.kisi@std.yildiz.edu.tr", "küfür", ago(500));
+		int revoked = whitelisted("eski@example.com", ago(400));
+		int inForce = whitelisted("gecerli@example.com", null);
+		audit("REVOKE_WHITELISTED_MAIL", "eski@example.com", null, ago(400));
 		database.update("INSERT INTO final_pixels (x, y, color) VALUES (3, 4, 'ff0000')");
 
-		RunResult dryRun = sweep.run(settings("dry-run", eventEnd), Trigger.MANUAL);
+		RunResult dryRun = sweep.run(settings("dry-run", null), Trigger.MANUAL);
 
 		assertThat(dryRun.status()).isEqualTo("ok");
 		assertThat(counts(dryRun)).containsExactlyInAnyOrderEntriesOf(Map.of(
-				"login_tokens", 1L, "pixel_log_ip", 1L, "banned_ip", 1L, "audit_ip_target", 1L,
+				"login_tokens", 2L, "pixel_log_ip", 1L, "banned_ip", 1L, "audit_ip_target", 1L,
 				"banned_account", 0L, "audit_banned_target", 0L,
 				"account", 1L, "whitelist_mail", 1L, "audit_whitelist_target", 1L));
 		assertThat(dryRun.rules()).allSatisfy(rule -> {
@@ -112,10 +117,9 @@ class RetentionSweepTests {
 			assertThat(rule.changed()).isZero();
 		});
 		assertThat(database.queryForObject("SELECT count(*) FROM users WHERE school_mail IS NULL", Integer.class)).isZero();
-		assertThat(database.queryForObject("SELECT count(*) FROM pixel_logs WHERE placer_ip IS NULL", Integer.class)).isZero();
-		assertThat(database.queryForObject("SELECT count(*) FROM user_tokens", Integer.class)).isEqualTo(2);
+		assertThat(database.queryForObject("SELECT count(*) FROM user_tokens", Integer.class)).isEqualTo(3);
 
-		RunResult apply = sweep.run(settings("apply", eventEnd), Trigger.MANUAL);
+		RunResult apply = sweep.run(settings("apply", null), Trigger.MANUAL);
 
 		assertThat(apply.status()).isEqualTo("ok");
 		// Apply changes exactly what the dry run counted.
@@ -124,91 +128,100 @@ class RetentionSweepTests {
 			assertThat(rule.changed()).isEqualTo(dryRun.rule(rule.rule()).matched());
 		});
 		assertThat(mailOf(played)).isNull();
+		// Active in the last 90 days, logged in 200 days ago, banned, placed 10 days ago: all stay.
+		assertThat(mailOf(recentLogin)).isEqualTo("yeni.giris@std.yildiz.edu.tr");
+		assertThat(mailOf(loginOnly)).isEqualTo("yalniz.giris@std.yildiz.edu.tr");
 		assertThat(mailOf(banned)).isEqualTo("yasakli.kisi@std.yildiz.edu.tr");
-		assertThat(mailOf(later)).isEqualTo("sonra.oynayan@std.yildiz.edu.tr");
-		assertThat(mailOf(loggedInLately)).isEqualTo("yeni.giris@std.yildiz.edu.tr");
+		assertThat(mailOf(recentPixel)).isEqualTo("sonra.oynayan@std.yildiz.edu.tr");
 		// The game stays: the canvas, the final canvas and every pixel log with its user and color.
 		assertThat(database.queryForObject("SELECT color FROM pixels WHERE id = ?", String.class, pixel)).isEqualTo("ff0000");
 		assertThat(database.queryForObject("SELECT count(*) FROM final_pixels", Integer.class)).isEqualTo(1);
 		assertThat(database.queryForList("SELECT user_id, new_color, placer_ip FROM pixel_logs ORDER BY id"))
 				.extracting(row -> row.get("user_id"), row -> row.get("new_color"), row -> row.get("placer_ip"))
-				.containsExactly(
-						tuple(played, "ff0000", null),
-						tuple(later, "ff0000", "203.0.113.8"));
-		assertThat(database.queryForList("SELECT user_id FROM user_tokens", Integer.class)).containsExactly(loggedInLately);
-		assertThat(database.queryForObject("SELECT count(*) FROM banned_ips", Integer.class)).isZero();
+				.containsExactly(tuple(played, "ff0000", null), tuple(recentPixel, "ff0000", "203.0.113.8"));
+		assertThat(database.queryForList("SELECT user_id FROM user_tokens", Integer.class)).containsExactly(recentLogin);
+		assertThat(database.queryForList("SELECT ip FROM banned_ips", String.class)).containsExactly("198.51.100.5");
 		assertThat(database.queryForObject("SELECT count(*) FROM banned_users", Integer.class)).isEqualTo(1);
 		assertThat(database.queryForList("SELECT action, target, reason FROM moderation_audit_log ORDER BY id"))
 				.extracting(row -> row.get("action"), row -> row.get("target"), row -> row.get("reason"))
 				.containsExactly(
 						tuple("BAN_IP", "", null),
+						tuple("BAN_IP", "198.51.100.5", "bot"),
 						tuple("BAN_USER", "yasakli.kisi@std.yildiz.edu.tr", "küfür"),
 						tuple("REVOKE_WHITELISTED_MAIL", "", null));
-		assertThat(database.queryForObject("SELECT count(*) FROM whitelisted_mails WHERE mail IS NULL", Integer.class)).isEqualTo(1);
+		assertThat(whitelistMail(revoked)).isNull();
+		assertThat(whitelistMail(inForce)).isEqualTo("gecerli@example.com");
 
-		RunResult again = sweep.run(settings("apply", eventEnd), Trigger.MANUAL);
+		RunResult again = sweep.run(settings("apply", null), Trigger.MANUAL);
 
 		assertThat(again.rules()).allSatisfy(rule -> {
 			assertThat(rule.matched()).isZero();
 			assertThat(rule.changed()).isZero();
 		});
+
+		// The login 200 days ago is remembered after its token is gone: the address goes a year after it.
+		clock.advance(Duration.ofDays(160));
+		assertThat(sweep.run(settings("apply", null), Trigger.MANUAL).rule("account").changed()).isZero();
+		clock.advance(Duration.ofDays(10));
+		assertThat(sweep.run(settings("apply", null), Trigger.MANUAL).rule("account").changed()).isEqualTo(1);
+		assertThat(mailOf(loginOnly)).isNull();
 	}
 
 	@Test
-	void aBannedAccountGoesTwoYearsAfterTheEvent() {
-		Instant eventEnd = now.minus(Duration.ofDays(800));
-		int banned = user("iki.yil@std.yildiz.edu.tr", eventEnd.minus(Duration.ofHours(1)));
-		bannedUser(banned, eventEnd.minus(Duration.ofDays(1)));
-		audit("BAN_USER", "iki.yil@std.yildiz.edu.tr", "spam", eventEnd.minus(Duration.ofDays(1)));
-		// A ban a moderator made after the event has its own two years.
-		int bannedLater = user("sonra.yasak@std.yildiz.edu.tr", eventEnd.minus(Duration.ofHours(1)));
-		bannedUser(bannedLater, now.minus(Duration.ofDays(100)));
-
-		RunResult apply = sweep.run(settings("apply", eventEnd), Trigger.MANUAL);
-
-		assertThat(apply.rule("banned_account").changed()).isEqualTo(1);
-		// The ban ends and, in the same run, the account's address goes.
-		assertThat(apply.rule("account").changed()).isEqualTo(1);
-		assertThat(mailOf(banned)).isNull();
-		assertThat(mailOf(bannedLater)).isEqualTo("sonra.yasak@std.yildiz.edu.tr");
-		assertThat(database.queryForList("SELECT banned_user_id FROM banned_users", Integer.class)).containsExactly(bannedLater);
-		assertThat(database.queryForObject("SELECT target FROM moderation_audit_log", String.class)).isEmpty();
-	}
-
-	@Test
-	void withoutTheEventEndNothingIsCountedOrChanged() {
-		int played = user("tarihsiz@std.yildiz.edu.tr", now.minus(Duration.ofDays(1000)));
-		token(played, "203.0.113.10", now.minus(Duration.ofDays(1000)));
+	void aBanAndItsRecordsGoTwoYearsAfterTheBanOrItsEnd() {
+		int banned = user("iki.yil@std.yildiz.edu.tr", ago(900));
+		bannedUser(banned, ago(800));
+		audit("BAN_USER", "iki.yil@std.yildiz.edu.tr", "spam", ago(800));
+		// Banned 800 days ago, lifted 100 days ago: two years from the lifting.
+		audit("BAN_USER", "kaldirildi@std.yildiz.edu.tr", "spam", ago(800));
+		audit("UNBAN_USER", "kaldirildi@std.yildiz.edu.tr", null, ago(100));
+		int bannedLater = user("sonra.yasak@std.yildiz.edu.tr", ago(900));
+		bannedUser(bannedLater, ago(100));
+		audit("BAN_USER", "sonra.yasak@std.yildiz.edu.tr", "spam", ago(100));
 
 		RunResult apply = sweep.run(settings("apply", null), Trigger.MANUAL);
 
-		assertThat(apply.status()).isEqualTo("ok");
-		assertThat(apply.rules()).hasSize(RetentionRules.ALL.size()).allSatisfy(rule -> {
-			assertThat(rule.status()).isEqualTo("no_event_end");
-			assertThat(rule.matched()).isZero();
-		});
-		assertThat(mailOf(played)).isEqualTo("tarihsiz@std.yildiz.edu.tr");
-		assertThat(database.queryForObject("SELECT count(*) FROM user_tokens", Integer.class)).isEqualTo(1);
-		assertThat(database.queryForObject("SELECT event_ended_at FROM retention_runs", Timestamp.class)).isNull();
+		assertThat(apply.rule("banned_account").changed()).isEqualTo(1);
+		// The ban ends and, in the same run, the account's address goes (its activity is old too).
+		assertThat(apply.rule("account").changed()).isEqualTo(1);
+		assertThat(mailOf(banned)).isNull();
+		// A standing ban keeps its account however old its activity.
+		assertThat(mailOf(bannedLater)).isEqualTo("sonra.yasak@std.yildiz.edu.tr");
+		assertThat(database.queryForList("SELECT banned_user_id FROM banned_users", Integer.class)).containsExactly(bannedLater);
+		assertThat(database.queryForList("SELECT target FROM moderation_audit_log ORDER BY id", String.class))
+				.containsExactly("", "kaldirildi@std.yildiz.edu.tr", "kaldirildi@std.yildiz.edu.tr", "sonra.yasak@std.yildiz.edu.tr");
 	}
 
 	@Test
-	void beforeNinetyDaysNothingIsDue() {
-		Instant eventEnd = now.minus(Duration.ofDays(89));
-		int played = user("yeni.etkinlik@std.yildiz.edu.tr", eventEnd.minus(Duration.ofDays(1)));
-		token(played, "203.0.113.11", eventEnd.minus(Duration.ofDays(1)));
-		pixelLog(pixel(0, 0, "000000"), played, "203.0.113.11", eventEnd.minus(Duration.ofDays(1)));
+	void anEventEndCountsTooWhenItIsLater() {
+		int played = user("etkinlik@std.yildiz.edu.tr", ago(400));
+		token(played, "203.0.113.11", ago(400));
 
-		RunResult apply = sweep.run(settings("apply", eventEnd), Trigger.MANUAL);
+		RunResult withRecentEvent = sweep.run(settings("apply", now.minus(Duration.ofDays(50))), Trigger.MANUAL);
 
-		assertThat(apply.rules()).allSatisfy(rule -> assertThat(rule.matched()).isZero());
-		clock.advance(Duration.ofDays(2));
+		assertThat(withRecentEvent.rules()).allSatisfy(rule -> assertThat(rule.matched()).isZero());
 
-		RunResult later = sweep.run(settings("apply", eventEnd), Trigger.MANUAL);
+		RunResult withOldEvent = sweep.run(settings("apply", now.minus(Duration.ofDays(100))), Trigger.MANUAL);
 
-		assertThat(later.rule("login_tokens").changed()).isEqualTo(1);
-		assertThat(later.rule("pixel_log_ip").changed()).isEqualTo(1);
-		assertThat(later.rule("account").matched()).isZero();
+		assertThat(withOldEvent.rule("login_tokens").changed()).isEqualTo(1);
+		assertThat(withOldEvent.rule("account").matched()).isZero();
+	}
+
+	@Test
+	void anAccountWithNoTraceOfActivityIsCountedFromTheFirstRun() {
+		int silent = user("iz.yok@std.yildiz.edu.tr", null);
+		int entry = whitelisted("sessiz@example.com", null);
+
+		sweep.run(settings("apply", null), Trigger.MANUAL);
+
+		assertThat(mailOf(silent)).isEqualTo("iz.yok@std.yildiz.edu.tr");
+		assertThat(database.queryForObject("SELECT last_seen_at FROM users WHERE id = ?", Timestamp.class, silent)).isNotNull();
+
+		clock.advance(Duration.ofDays(366));
+		sweep.run(settings("apply", null), Trigger.MANUAL);
+
+		assertThat(mailOf(silent)).isNull();
+		assertThat(whitelistMail(entry)).isNull();
 	}
 
 	@Test
@@ -336,9 +349,13 @@ class RetentionSweepTests {
 		return database.queryForObject("SELECT school_mail FROM users WHERE id = ?", String.class, userId);
 	}
 
+	private Instant ago(int days) {
+		return now.minus(Duration.ofDays(days));
+	}
+
 	private int user(String schoolMail, Instant lastPlacedAt) {
 		return database.queryForObject("INSERT INTO users (school_mail, last_placed_at) VALUES (?, ?) RETURNING id",
-				Integer.class, schoolMail, Timestamp.from(lastPlacedAt));
+				Integer.class, schoolMail, lastPlacedAt == null ? null : Timestamp.from(lastPlacedAt));
 	}
 
 	private int pixel(int x, int y, String color) {
@@ -370,7 +387,12 @@ class RetentionSweepTests {
 				action, target, reason, Timestamp.from(at));
 	}
 
-	private void whitelisted(String mail) {
-		database.update("INSERT INTO whitelisted_mails (mail) VALUES (?)", mail);
+	private int whitelisted(String mail, Instant revokedAt) {
+		return database.queryForObject("INSERT INTO whitelisted_mails (mail, revoked_at) VALUES (?, ?) RETURNING id",
+				Integer.class, mail, revokedAt == null ? null : Timestamp.from(revokedAt));
+	}
+
+	private String whitelistMail(int id) {
+		return database.queryForObject("SELECT mail FROM whitelisted_mails WHERE id = ?", String.class, id);
 	}
 }

@@ -110,6 +110,19 @@ class WhitelistLifecycleTests {
 	}
 
 	@Test
+	void anEntryWhoseAddressTheRetentionRunEmptiedCanStillBeRevokedAndRestored() throws Exception {
+		Cookie moderator = moderator("liste.moderator7@std.yildiz.edu.tr");
+		int id = entry("bosalacak@example.com");
+		database.update("UPDATE whitelisted_mails SET mail = NULL WHERE id = ?", id);
+
+		revoke(moderator, id).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+		restore(moderator, id).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+
+		assertThat(database.queryForList("SELECT target FROM moderation_audit_log WHERE action IN ('REVOKE_WHITELISTED_MAIL', 'RESTORE_WHITELISTED_MAIL') AND target = 'anonim'", String.class))
+				.hasSize(2);
+	}
+
+	@Test
 	void anUnknownEntryIsNotFound() throws Exception {
 		Cookie moderator = moderator("liste.moderator5@std.yildiz.edu.tr");
 
