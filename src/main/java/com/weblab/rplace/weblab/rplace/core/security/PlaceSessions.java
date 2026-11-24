@@ -143,7 +143,8 @@ public class PlaceSessions {
         } else {
             end = clock.instant().plusSeconds(COOKIE_MAX_AGE_SECONDS);
         }
-        long left = Duration.between(clock.instant(), end).toSeconds();
+        // To the nearest second: the stored end has microseconds, the clock nanoseconds.
+        long left = (Duration.between(clock.instant(), end).toMillis() + 500) / 1000;
         if (left > 0) {
             int maxAge = (int) Math.min(left, COOKIE_MAX_AGE_SECONDS);
             addCookie(response, SESSION_COOKIE, sessionToken, maxAge);
