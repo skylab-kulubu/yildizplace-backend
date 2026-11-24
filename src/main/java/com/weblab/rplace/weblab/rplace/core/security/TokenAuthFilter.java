@@ -36,6 +36,9 @@ import java.time.Clock;
  * session then answer 403 with the reason (BannedRequestEntryPoint); public ones
  * still answer. An address ban does not hold for an elevated session, so a
  * moderator on a banned shared network can still lift the ban.
+ *
+ * <p>A live session on the old API host gets its cookies on the new Domain
+ * (PlaceSessions.moveFromLegacyDomain, ADR 0090).
  */
 @Component
 public class TokenAuthFilter extends OncePerRequestFilter {
@@ -89,10 +92,12 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                 request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.userIsBanned);
             } else if (user.isSuccess() && session.getRole() == null && banService.isIpAddressBanned(clientIp.of(request))) {
                 request.setAttribute(BannedRequestEntryPoint.BAN_MESSAGE, Messages.ipBanned);
+                placeSessions.moveFromLegacyDomain(request, token, session, response);
             } else if (user.isSuccess()) {
                 var authToken = new UsernamePasswordAuthenticationToken(user.getData(), token, session.grantedRoles());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                placeSessions.moveFromLegacyDomain(request, token, session, response);
             }
         }
 
