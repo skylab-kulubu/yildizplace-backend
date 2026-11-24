@@ -39,6 +39,8 @@ import java.util.function.Supplier;
  * under a 30-second statement timeout, and never more rows than its count found.</li>
  * <li>The brake: a rule that would change more than RETENTION_SWEEP_MAX_ROWS rows is
  * refused (apply changes nothing for it; the dry run says would_refuse_large).</li>
+ * <li>An EVENT_ENDED_AT that is set but not a date: apply counts and changes nothing
+ * (rules and run config_error, once a day); the dry run counts without it.</li>
  * <li>Periods slide: they count from each row's own time or the person's last activity
  * (RetentionRules); EVENT_ENDED_AT, when set, counts too if it is later.</li>
  * <li>Before the rules, every run (dry run too) records each account's last login in
@@ -166,7 +168,11 @@ public class RetentionSweep {
             for (RetentionRule rule : RetentionRules.ALL) {
                 RuleResult result = runRule(rule, settings, params, runId);
                 results.add(result);
-                if (result.status().equals("failed") || result.status().equals("refused_large")) {
+                if (result.status().equals("config_error")) {
+                    status = "config_error";
+                    errorCode = "event_ended_at_invalid";
+                } else if ((result.status().equals("failed") || result.status().equals("refused_large"))
+                        && !status.equals("config_error")) {
                     status = "partial";
                 }
             }
@@ -197,7 +203,9 @@ public class RetentionSweep {
         String errorCode = null;
         try {
             matched = inTransaction(() -> jdbc.queryForObject(rule.countSql(), params, Long.class));
-            if (matched > settings.maxRows()) {
+            if (settings.mode() == RetentionMode.APPLY && settings.eventEndInvalid()) {
+                status = "config_error";
+            } else if (matched > settings.maxRows()) {
                 status = settings.mode() == RetentionMode.APPLY ? "refused_large" : "would_refuse_large";
             } else if (settings.mode() == RetentionMode.DRY_RUN) {
                 status = "dry_run";
@@ -285,7 +293,7 @@ public class RetentionSweep {
     private boolean isDue(RetentionSettings settings) {
         Integer recent = jdbc.queryForObject("""
                         SELECT count(*) FROM retention_runs
-                        WHERE triggered_by = 'schedule' AND mode = :mode AND status IN ('ok', 'partial') AND started_at > :since
+                        WHERE triggered_by = 'schedule' AND mode = :mode AND status IN ('ok', 'partial', 'config_error') AND started_at > :since
                         AND event_ended_at IS NOT DISTINCT FROM CAST(:eventEnd AS timestamptz)""",
                 new MapSqlParameterSource()
                         .addValue("mode", settings.mode().value())

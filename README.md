@@ -54,7 +54,7 @@ Bütün yapılandırma ortam değişkenlerinden okunur (Spring'in ortam değişk
 | `PLACE_MAINTENANCE_ENABLED` | hayır | `true` | 15 dakikada bir bakım: süresi geçmiş yetkili oturumları ve dönülmemiş e-skylab girişlerini siler, düz kalmış giriş değerlerini özetler (aşağıya bakın) |
 | `PLACE_ELEVATED_SESSION_TTL` | hayır | `8h` | Admin ya da moderatör yetkili oturumun ömrü (`30m`, `8h` gibi); sonra oturum biter ve yeni girişte roller Keycloak'tan yeniden okunur (aşağıya bakın) |
 | `RETENTION_SWEEP_MODE` | hayır | `dry-run` | Günlük imha işi: `off`, `dry-run` (yalnız sayar) ya da `apply` (siler/boşaltır). Başka bir değerde uygulama açılmaz (aşağıya bakın) |
-| `EVENT_ENDED_AT` | hayır | | Bir etkinliğin bitişi: `2025-05-18` (o günün sonu, Türkiye saati) ya da `2025-05-18T22:00:00+03:00`. Verilirse süreler bundan da sayılır (satırın zamanından geç olanı). Tarih olmayan değer loga yazılır ve yok sayılır |
+| `EVENT_ENDED_AT` | hayır | | Bir etkinliğin bitişi: `2025-05-18` (o günün sonu, Türkiye saati) ya da `2025-05-18T22:00:00+03:00`. Verilirse süreler bundan da sayılır (satırın zamanından geç olanı). Tarih olmayan değer loga yazılır; uygulama açılır, dry-run onsuz sayar, `apply` hiçbir şeyi değiştirmez (`config_error`) |
 | `RETENTION_SWEEP_MAX_ROWS` | hayır | `50000` | Fren: bir kural bundan çok satır değiştirecekse o gün reddedilir |
 | `RETENTION_SWEEP_BATCH_SIZE` | hayır | `500` | `apply`'da tek komutun değiştirdiği en çok satır |
 | `KEYCLOAK_CLIENT_SECRET` | e-skylab girişi için (sır) | | Keycloak istemcisi `place`'in sırrı. Dokploy'da yalnız OpenBao referansı: `${{vault.bao-etkinlik.<appName>/KEYCLOAK_CLIENT_SECRET:value}}`. Yoksa uygulama yine açılır, mail girişi çalışır, `/api/auth/eskylab/*` `503` döner |
@@ -136,7 +136,7 @@ Tuval (`pixels`, `final_pixels`) ve piksel kayıtlarının kişisel olmayan alan
 - Her koşu kişisiz bir makbuz yazar: `retention_runs` (kip, tetik, kullanılan etkinlik bitişi, zaman, durum, hata kodu) ve `retention_run_rules` (kural, tablo, eylem, eşik, `matched`, `changed`, durum). Hiçbir kod yolu bunları silmez. Log satırları aynı sayıları taşır, adres ya da IP taşımaz:
   `retention_rule rule=pixel_log_ip version=1 mode=dry-run status=dry_run table=pixel_logs action=empty cutoff=… matched=333000 changed=0 code=-`
   `retention_run id=12 mode=dry-run trigger=schedule status=ok event_ended_at=… matched=… changed=… code=-`
-- Durumlar: `dry_run` (sayıldı), `ok` (değiştirildi), `would_refuse_large` / `refused_large` (fren), `failed` (hata kodu SQLSTATE).
+- Durumlar: `dry_run` (sayıldı), `ok` (değiştirildi), `would_refuse_large` / `refused_large` (fren), `failed` (hata kodu SQLSTATE), `config_error` (`EVENT_ENDED_AT` tarih değil; `apply` hiçbir şeyi değiştirmedi, koşu `event_ended_at_invalid` koduyla biter, günde bir kez).
 - Bir yedek geri yüklenirse süresi geçmiş satırlar geri gelir; `apply` kipindeki ilk koşu onları yeniden işler.
 
 #### Yetkiler (admin, moderatör)

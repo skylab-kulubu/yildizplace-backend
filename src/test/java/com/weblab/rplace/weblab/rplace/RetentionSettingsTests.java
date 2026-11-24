@@ -31,8 +31,11 @@ class RetentionSettingsTests {
 				.isEqualTo(Instant.parse("2025-05-18T21:00:00Z"));
 		assertThat(new RetentionSettings("dry-run", "2025-05-18T22:00:00+03:00", 50000, 500).eventEndedAt())
 				.isEqualTo(Instant.parse("2025-05-18T19:00:00Z"));
-		// Optional: a value that is not a date is logged and ignored, the application still starts.
+		// Optional: a value that is not a date is logged, the application still starts; apply then changes nothing.
 		assertThat(new RetentionSettings("dry-run", "18.05.2025", 50000, 500).eventEndedAt()).isNull();
+		assertThat(new RetentionSettings("dry-run", "18.05.2025", 50000, 500).eventEndInvalid()).isTrue();
+		assertThat(new RetentionSettings("dry-run", "", 50000, 500).eventEndInvalid()).isFalse();
+		assertThat(new RetentionSettings("dry-run", "2025-05-18", 50000, 500).eventEndInvalid()).isFalse();
 	}
 
 	@Test

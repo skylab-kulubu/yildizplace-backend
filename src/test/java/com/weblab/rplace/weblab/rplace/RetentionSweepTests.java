@@ -208,6 +208,32 @@ class RetentionSweepTests {
 	}
 
 	@Test
+	void aBadEventEndStopsApplyButNotTheDryRun() {
+		int played = user("bozuk.tarih@std.yildiz.edu.tr", ago(400));
+		token(played, "203.0.113.12", ago(400));
+		RetentionSettings bad = new RetentionSettings("apply", "18.05.2025", 50000, 500);
+		assertThat(bad.eventEndInvalid()).isTrue();
+
+		RunResult dryRun = sweep.run(new RetentionSettings("dry-run", "18.05.2025", 50000, 500), Trigger.MANUAL);
+		RunResult apply = sweep.run(bad, Trigger.SCHEDULE);
+
+		assertThat(dryRun.rule("login_tokens").status()).isEqualTo("dry_run");
+		assertThat(dryRun.rule("login_tokens").matched()).isEqualTo(1);
+		assertThat(apply.status()).isEqualTo("config_error");
+		assertThat(apply.rules()).allSatisfy(rule -> {
+			assertThat(rule.status()).isEqualTo("config_error");
+			assertThat(rule.changed()).isZero();
+		});
+		assertThat(apply.rule("login_tokens").matched()).isEqualTo(1);
+		assertThat(mailOf(played)).isEqualTo("bozuk.tarih@std.yildiz.edu.tr");
+		assertThat(database.queryForObject("SELECT count(*) FROM user_tokens", Integer.class)).isEqualTo(1);
+		assertThat(database.queryForObject("SELECT error_code FROM retention_runs WHERE mode = 'apply'", String.class))
+				.isEqualTo("event_ended_at_invalid");
+		// Once a day, not every hour.
+		assertThat(sweep.run(bad, Trigger.SCHEDULE).outcome()).isEqualTo(Outcome.NOT_DUE);
+	}
+
+	@Test
 	void anAccountWithNoTraceOfActivityIsCountedFromTheFirstRun() {
 		int silent = user("iz.yok@std.yildiz.edu.tr", null);
 		int entry = whitelisted("sessiz@example.com", null);

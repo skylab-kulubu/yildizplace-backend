@@ -45,7 +45,7 @@ public class RetentionRun {
     @Column(name = "finished_at")
     private Instant finishedAt;
 
-    // running, ok, partial, failed, abandoned
+    // running, ok, partial, failed, abandoned, config_error
     @Column(name = "status", nullable = false, length = 16)
     private String status;
 

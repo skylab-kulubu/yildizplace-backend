@@ -53,7 +53,7 @@ public class RetentionRunRule {
     @Column(name = "changed", nullable = false)
     private long changed;
 
-    // ok, dry_run, refused_large, would_refuse_large, failed
+    // ok, dry_run, refused_large, would_refuse_large, failed, config_error
     @Column(name = "status", nullable = false, length = 32)
     private String status;
 

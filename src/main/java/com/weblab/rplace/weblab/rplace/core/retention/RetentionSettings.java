@@ -14,7 +14,8 @@ import java.time.format.DateTimeParseException;
 /**
  * The periodic destruction run's configuration (README, "Saklama ve imha"). An unknown
  * mode or a non-positive number stops the application at startup, naming the variable;
- * an EVENT_ENDED_AT that is not a date is logged and ignored (it is optional).
+ * an EVENT_ENDED_AT that is not a date is logged, the dry run counts without it and apply
+ * changes nothing (config_error) until it is fixed.
  */
 @Component
 public class RetentionSettings {
@@ -28,6 +29,9 @@ public class RetentionSettings {
 
     private final Instant eventEndedAt;
 
+    // EVENT_ENDED_AT was set but is not a date: apply changes nothing until it is fixed.
+    private final boolean eventEndInvalid;
+
     private final int maxRows;
 
     private final int batchSize;
@@ -38,6 +42,7 @@ public class RetentionSettings {
                              @Value("${retention.sweep.batch-size:500}") int batchSize) {
         this.mode = RetentionMode.parse(mode);
         this.eventEndedAt = parseEventEnd(eventEndedAt);
+        this.eventEndInvalid = eventEndedAt != null && !eventEndedAt.isBlank() && this.eventEndedAt == null;
         if (maxRows < 1) {
             throw new IllegalStateException("RETENTION_SWEEP_MAX_ROWS must be a positive number");
         }
@@ -56,6 +61,14 @@ public class RetentionSettings {
      * When the event ended (EVENT_ENDED_AT), or null. Optional: periods count from each row's own
      * time; when this is set, they count from it too if it is later.
      */
+    /**
+     * EVENT_ENDED_AT was set but is not a date. The application still starts; the dry run counts
+     * without it, and apply changes nothing (config_error): a typo must not shorten a period.
+     */
+    public boolean eventEndInvalid() {
+        return eventEndInvalid;
+    }
+
     public Instant eventEndedAt() {
         return eventEndedAt;
     }
