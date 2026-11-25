@@ -170,16 +170,32 @@ class EskylabLoginTests {
 				String.class, "yeni.uye@std.yildiz.edu.tr")).containsExactly("ROLE_USER");
 	}
 
+	// No school address: refused with its own flag, so the frontend can say how to link the YTÜ account.
 	@Test
-	void anIdTokenWithoutASchoolEmailIsRefused() throws Exception {
-		assertRefused(logIn(mockMvc, claims("email", "kisisel@gmail.com")));
+	void anIdTokenWithoutASchoolEmailIsRefusedAsNoSchoolEmail() throws Exception {
+		assertRefusedForNoSchoolEmail(logIn(mockMvc, claims("email", "kisisel@gmail.com")));
 		assertThat(accountsOf("kisisel@gmail.com")).isZero();
 	}
 
 	@Test
-	void aSchoolEmailThatIsNotASchoolAddressIsRefused() throws Exception {
-		assertRefused(logIn(mockMvc, claims("school_email", "kisisel@gmail.com")));
+	void aBlankSchoolEmailIsRefusedAsNoSchoolEmail() throws Exception {
+		assertRefusedForNoSchoolEmail(logIn(mockMvc, claims("school_email", " ")));
+	}
+
+	@Test
+	void aSchoolEmailThatIsNotASchoolAddressIsRefusedAsNoSchoolEmail() throws Exception {
+		assertRefusedForNoSchoolEmail(logIn(mockMvc, claims("school_email", "kisisel@gmail.com")));
 		assertThat(accountsOf("kisisel@gmail.com")).isZero();
+	}
+
+	@Test
+	@ExtendWith(OutputCaptureExtension.class)
+	void aRefusedAddressDoesNotReachTheLog(CapturedOutput log) throws Exception {
+		assertRefusedForNoSchoolEmail(logIn(mockMvc, claims("school_email", "gizli.adres@gmail.com")));
+
+		assertThat(log.getAll())
+				.contains("e-skylab login refused")
+				.doesNotContain("gizli.adres");
 	}
 
 	@Test
@@ -345,6 +361,13 @@ class EskylabLoginTests {
 	private static void assertRefused(ResultActions callback) throws Exception {
 		callback.andExpect(status().isFound())
 				.andExpect(redirectedUrl(FRONTEND + "/?sso=error"))
+				.andExpect(cookie().doesNotExist("user_token"));
+	}
+
+	/** Refused for want of a school address: back on the frontend with ?sso=no_school_email, and not logged in. */
+	private static void assertRefusedForNoSchoolEmail(ResultActions callback) throws Exception {
+		callback.andExpect(status().isFound())
+				.andExpect(redirectedUrl(FRONTEND + "/?sso=no_school_email"))
 				.andExpect(cookie().doesNotExist("user_token"));
 	}
 
