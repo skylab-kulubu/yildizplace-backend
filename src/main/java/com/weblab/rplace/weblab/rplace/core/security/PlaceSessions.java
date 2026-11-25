@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Locale;
 
 /**
  * Place's own session, the same whichever way a person logged in: a user_tokens row
@@ -33,6 +34,13 @@ import java.util.Date;
  * are HttpOnly, Secure and SameSite=Lax, also when they are deleted. Lax, not Strict:
  * the frontend reads them on top-level navigations, also from a link on another site
  * (a mail client), and Strict would leave them out there.
+ *
+ * <p>Moving the API to another host (ADR 0090): the frontend's middleware reads the
+ * cookies on the frontend's own host, so their Domain (DOMAIN) must cover both hosts.
+ * While the frontend still calls the old API host, PLACE_LEGACY_COOKIE_DOMAIN names the
+ * Domain the cookies had before. A request to a host under it with a live session gets
+ * the same cookies on DOMAIN (with the time they had left) and the old ones deleted;
+ * logout there deletes both. Off when blank.
  */
 @Component
 public class PlaceSessions {
@@ -51,12 +59,22 @@ public class PlaceSessions {
 
     private final Duration elevatedSessionTtl;
 
+    private final String legacyDomain;
+
     public PlaceSessions(UserTokenService userTokenService, Clock clock, @Value("${domain}") String domain,
-                         @Value("${place.elevated-session-ttl}") Duration elevatedSessionTtl) {
+                         @Value("${place.elevated-session-ttl}") Duration elevatedSessionTtl,
+                         @Value("${place.legacy-cookie-domain:}") String legacyDomain) {
         this.userTokenService = userTokenService;
         this.clock = clock;
         this.domain = domain;
         this.elevatedSessionTtl = elevatedSessionTtl;
+        this.legacyDomain = legacyDomain == null ? "" : legacyDomain.trim().toLowerCase(Locale.ROOT);
+        // The old Domain must sit under the new one: a cookie on DOMAIN then reaches the old host
+        // too, and deleting the old cookies never deletes the new ones.
+        if (!this.legacyDomain.isEmpty() && (domain == null
+                || !this.legacyDomain.endsWith("." + domain.trim().toLowerCase(Locale.ROOT)))) {
+            throw new IllegalStateException("PLACE_LEGACY_COOKIE_DOMAIN must be a subdomain of DOMAIN");
+        }
     }
 
     /** Opens a mail session: always ROLE_USER, whatever the authorities table says. */
@@ -102,6 +120,52 @@ public class PlaceSessions {
         }
         addCookie(response, SESSION_COOKIE, "", 0);
         addCookie(response, ADMIN_COOKIE, "", 0);
+        if (onLegacyHost(request)) {
+            deleteLegacyCookies(response);
+        }
+    }
+
+    /**
+     * On a host under PLACE_LEGACY_COOKIE_DOMAIN: sets this live session's cookies again on
+     * DOMAIN, with the time they have left, and deletes the ones on the old Domain. Anywhere
+     * else, or when the setting is blank, it does nothing.
+     */
+    public void moveFromLegacyDomain(HttpServletRequest request, String sessionToken, UserToken session,
+                                     HttpServletResponse response) {
+        if (!onLegacyHost(request)) {
+            return;
+        }
+        Instant end;
+        if (session.getExpiresAt() != null) {
+            end = session.getExpiresAt();
+        } else if (session.getCreatedAt() != null) {
+            end = session.getCreatedAt().toInstant().plusSeconds(COOKIE_MAX_AGE_SECONDS);
+        } else {
+            end = clock.instant().plusSeconds(COOKIE_MAX_AGE_SECONDS);
+        }
+        // To the nearest second: the stored end has microseconds, the clock nanoseconds.
+        long left = (Duration.between(clock.instant(), end).toMillis() + 500) / 1000;
+        if (left > 0) {
+            int maxAge = (int) Math.min(left, COOKIE_MAX_AGE_SECONDS);
+            addCookie(response, SESSION_COOKIE, sessionToken, maxAge);
+            if (session.getRole() != null) {
+                addCookie(response, ADMIN_COOKIE, "true", maxAge);
+            }
+        }
+        deleteLegacyCookies(response);
+    }
+
+    private boolean onLegacyHost(HttpServletRequest request) {
+        if (legacyDomain.isEmpty() || request.getServerName() == null) {
+            return false;
+        }
+        String host = request.getServerName().toLowerCase(Locale.ROOT);
+        return host.equals(legacyDomain) || host.endsWith("." + legacyDomain);
+    }
+
+    private void deleteLegacyCookies(HttpServletResponse response) {
+        addCookie(response, SESSION_COOKIE, "", 0, legacyDomain);
+        addCookie(response, ADMIN_COOKIE, "", 0, legacyDomain);
     }
 
     /** The value of the request's user_token cookie, or null. */
@@ -120,9 +184,13 @@ public class PlaceSessions {
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
+        addCookie(response, name, value, maxAge, domain);
+    }
+
+    private void addCookie(HttpServletResponse response, String name, String value, int maxAge, String cookieDomain) {
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(name, value)
                 .path("/")
-                .domain(domain)
+                .domain(cookieDomain)
                 .maxAge(maxAge)
                 .httpOnly(true)
                 .secure(true)
