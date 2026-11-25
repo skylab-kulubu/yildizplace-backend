@@ -26,6 +26,8 @@ public interface EskylabLoginService {
      * no user, and the frontend with ?sso=none. Anything else: no user, and the
      * frontend with ?sso=error; the reason goes to the log. A banned user, or a user
      * without a Place role at a banned address: no user, and the frontend with ?sso=banned.
+     * An ID token without a school address (no school_email, or one outside the school
+     * domain): no user, and the frontend with ?sso=no_school_email.
      */
     EskylabLoginResult finish(String state, String code, String error, String browser, String clientIp);
 }
